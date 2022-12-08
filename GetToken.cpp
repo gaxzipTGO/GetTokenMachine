@@ -15,7 +15,16 @@ class GetTokenMachine {
     protected: char bufferDelimiter = '\0' ; // used to save delimiter
 
     public: GetTokenMachine(string file) {
-        this->fin.open(file) ;
+        try {
+            this->fin.open(file) ;
+            if ( !fin ) {
+                throw invalid_argument("the file not open")  ;
+            }
+        }
+        catch ( exception &e ) {
+            cerr << e.what() << " ," << "in line : " << __LINE__ << endl ; 
+            throw invalid_argument(e.what())  ;
+        }
     }
 
     protected: bool IsDelimiter(char ch) {
@@ -97,9 +106,24 @@ class GetTokenMachine {
         }
         else return false ;
     }
+
 } ;
 
-
-int main(int argc,char **argv) {
-    cout << "hello world" << endl ;
-}
+/*
+用法為:
+    string fileName ;
+    cin >> fileName ;
+    string token ;
+    bool end ;
+    GetTokenMachine machine1( fileName ) ;
+    do {
+        end = machine1.GetNextToken(token) ; // end is a bool means the page is EOF if end is false
+        if ( token != "" ) {
+            // here we can put some choise to get token like's string
+            cout << token << ' ';
+        } // the compare is very important!!! that can cheak the token does read something   
+        if ( machine1.IsEnterChar() ) {
+            cout << '\n' ;
+        }     
+    } while ( end ) ;   // this while is we can loading all token of page
+*/
