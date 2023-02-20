@@ -1,8 +1,6 @@
 #include <iostream>
-#include <vector>
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <cstdio>
 
 using namespace std ;
@@ -139,16 +137,24 @@ class GetTokenMachine {
 
 } getTokenMachine;
 
+class PL_GetToken : public GetTokenMachine {
+
+    public: bool ReadString() {
+        
+    }
+
+} pl_GetToken;
+
 int main() {
     string token = "" ;
     bool end ;
     do {
-        end = getTokenMachine.GetNextToken(token) ; // end is a bool means the page is EOF if end is false
+        end = pl_GetToken.GetNextToken(token) ; // end is a bool means the page is EOF if end is false
         if ( token != "" ) {
             // here we can put some choise to get token like's string
             cout << token << ' ';
         } // the compare is very important!!! that can cheak the token does read something   
-        if ( getTokenMachine.IsEnterChar() ) {
+        if ( pl_GetToken.IsEnterChar() ) {
             cout << '\n' ;
         }     
     } while ( end ) ;   // this while is we can loading all token of page    
