@@ -143,7 +143,7 @@ class GetTokenMachine {
   } // DelimiterDeal()
 
     protected: virtual string CheakDelimiter() {
-        this->m_bufferDelimiter = m_nextChar ;
+        m_bufferDelimiter = m_nextChar ;
         return "" ; 
    }// CheakDelimiter()
 
@@ -308,7 +308,7 @@ class PL_GetToken : public GetTokenMachine {
     }
 
     protected: string PutDelimiterToBuffer() {
-        this->m_bufferDelimiter = m_nextChar ;
+        m_bufferDelimiter = m_nextChar ;
         return "" ; 
    }// CheakDelimiter()
 
