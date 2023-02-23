@@ -307,7 +307,10 @@ class PL_GetToken : public GetTokenMachine {
           }
     }
 
-
+    protected: string PutDelimiterToBuffer() {
+        this->m_bufferDelimiter = m_nextChar ;
+        return "" ; 
+   }// CheakDelimiter()
 
     protected: virtual string CheakDelimiter() {
 
@@ -315,7 +318,7 @@ class PL_GetToken : public GetTokenMachine {
         return ReadDot() ; 
       } // if
       else {
-        return GetTokenMachine::CheakDelimiter() ;
+        return PutDelimiterToBuffer() ;
       }
     } // 
 
