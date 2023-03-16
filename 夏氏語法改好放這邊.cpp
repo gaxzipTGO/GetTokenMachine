@@ -24,93 +24,196 @@ struct Token {
 }
 ;
 
+string To_String( int num ) {
+
+  char buffer[16];
+  sprintf( buffer, "%d", num ) ;
+  string strNumber( buffer ) ;
+  return strNumber ;
+
+} // To_String()
+
+bool HaveWord( char ch ) {
+  if ( ( ch >= 65 && ch <= 90 ) || ( ch >= 97 && ch <= 122 ) ) {
+    return true ;
+  } // if
+  
+  return false ;
+} // HaveWord()
+
 class TokenClassCategory {
   
-  public: bool IsNum( string str ) {
-    for ( int i = 0 ; i < str.length() ; i++ ) {
-      if ( str.at( i ) < 48 || str.at( i ) > 57 ) {
-        return false ;
-      } // if
-    } // for
-    
-    return true ;
-  } // IsNum()
-  
-  protected: bool HaveDot( string str ) {
-    for ( int i = 0 ; i < str.length() ; i++ ) {
-      if ( str.at( i ) == '.' ) {
-        return true ;
-      } // if
-    } // for
-    
-    return false ; 
-    
-  } // HaveDot()
-  
-  protected: bool HaveOperate( string str ) {
-    for ( int i = 0 ; i < str.length() ; i++  ) {
-      if ( str.at( i ) == '+' || str.at( i ) == '-' ) {
-        return true ;
-      } // if
-    } // for
-    
-    return false ;
-    
-  } // HaveOperate()
-  
-  protected: bool HaveWord( string str ) {
-    for ( int i = 0 ; i < str.length() ; i++  ) {
-      if ( ( str.at( i ) >= 65 && str.at( i ) <= 90 ) || ( str.at( i ) >= 97 && str.at( i ) <= 122 ) ) {
-        return true ;
-      } // if
-    } // for
-    
-    return false ;
-  } // HaveWord()
-  
-  public: int CheakCateGory( string token ) {
-    if ( token == "nil" || token == "#f" ) {
-      return NIL ;
-    } // if
-    else if ( token == "t" || token == "#t" ) {
-      return T ;
-    } // else if 
-    
-    bool haveOperate = HaveOperate( token ) ; 
-    bool haveDot =  HaveDot( token ) ;
-    bool haveWord = HaveWord( token ) ;
-    
-    if ( haveDot && haveWord ) {
-      return SYMBOL ;
+
+  protected: virtual bool IsInt( string token ) {
+    if ( token.size() == 0 ) {
+      return false ;
     } // if 
-    
-    for ( int i = 0 ; i < token.length() ; i++ ) {
-      
-      if ( token.at( i ) == '(' ) {
-        return LEFT_PAREN ;
+
+    for ( int i = 0 ; i < token.size() ; i ++ ) {
+      if ( token.at( i ) < '0' || token.at( i ) > '9' ) {
+        return false ; 
       } // if
-      else if ( token.at( i ) == ')' ) {
-        return RIGHT_PAREN ;
-      } // else if
-      else if ( token.at( i ) == '\'' ) {
-        return QUOTE ;
-      } // else if
-      
     } // for
-    
-    return 0 ;
-  } // CheakCateGory()
+
+    return true ;
+  } // IsInt() 
+
+  protected: virtual bool IsFloat( string token ) {
+  /*
+    確認給進來的這一項是不是數字 可以無視一次+ or - 是的話回傳一個 true
+  */
+    if ( token.size() == 0 ) {
+      return false ;
+    } // if
+
+    bool miss = true ;
+    for ( int i = 0 ; i < token.size() ; i ++ ) {
+      if ( ( token.at( i ) < '0' || token.at( i ) > '9' ) ) {
+        if ( miss == false ) {
+          return false ;
+        } // if
+
+        if ( token.at( i ) == '+' || token.at( i ) == '-' ) {
+          miss = false ;
+        } // if
+        else {
+          return false ;
+        } // else
+       
+      } // if
+    } // for
+
+    return true ;
+
+  } // IsFloat()
+
+  protected: virtual string AddZero( string token ) {
+    for ( int i = token.size() ; i < 3 ; i ++ ) {
+      token = token + string( 1, '0' ) ;
+    } // for
+
+    return token ;
+  } // AddZero()
+
+  protected: virtual string RoundingUP( string token ) {
+    if ( token.at( 3 ) > '4' ) {
+      token.at( 2 ) = token.at( 2 ) + 1 ;
+    } // if
+
+    return token.substr( 0, 3 ) ;
+  } // RoundingUP()
+
+  protected: virtual string DealWithOperate( string token ) {
+  /*
+    看第一項是不是加號 如果是的話並且後面是數字的話把他給清除
+  */
+    if ( token.at( 0 ) == '+' ) {
+      if ( token.at( 1 ) >= '0' && token.at( 1 ) <= '9' ) {
+        token.erase( 0, 1 ) ;
+      } // if
+    } // if
+
+    return token ;
+  } // DealWithOperate()
+
+  protected: virtual string CheckFloat( string token ) {
+    bool int_is = true ;
+    for ( int i = 0 ; i < token.size() && int_is == true ; i ++ ) {
+      if ( token.at( i ) == '.' ) {
+        string sub_token_head = token.substr( 0, i ) ;
+        string sub_token_tail = token.substr( i+1, token.size() - i ) ;
+        if ( ! IsFloat( sub_token_head ) ) {
+          return token ;
+        } // if
+
+        if ( sub_token_tail.size() == 3 ) {
+          return token ;
+        } // if 
+        else if ( sub_token_tail.size() < 3 ) {
+          if ( sub_token_head.at( sub_token_head.size()-1 ) >= '0' && 
+               sub_token_head.at( sub_token_head.size()-1 ) <= '9' ) {
+            return sub_token_head + '.' + AddZero( sub_token_tail ) ;
+          } // if
+        } // else if 要做補數
+        else if ( sub_token_tail.size() > 3 ) {
+          return sub_token_head + '.' + RoundingUP( sub_token_tail ) ;
+        } // else if 做四捨五入
+      } // if
+      else if ( HaveWord( token.at( i ) ) ) {
+        int_is = false ;
+      } // if 
+    } // for
+
+    return token ;
+  } // CheckFloat()
+
+  protected: virtual string CheakNULL( string token ) {
+  /*
+    確認給進來的這一項是不是空的 可以無視一次+ or - 是的話就可以在最尾巴加上 '0'
+  */
+    if ( token.size() == 0 ) {
+      return "0" ;
+    } // if
+
+    if ( token.size() == 1 ) {
+      if ( token.at( 0 ) == '+' || token.at( 0 ) == '-' ) {
+        return token + string( 1, '0' ) ;
+      } // if
+    } // if 
+
+    return token ;
+  } // CheakNULL()
+
+  protected: virtual string CheakInt( string token ) {
+    for ( int i = 0 ; i < token.size()  ; i ++ ) {
+      if ( token.at( i ) == '.' ) {
+        string sub_token_head = token.substr( 0, i ) ;
+        string sub_token_tail = token.substr( i+1, token.size() - i ) ;
+        if ( IsInt( sub_token_tail ) ) {
+          return CheakNULL( sub_token_head ) + string( 1, '.' ) + sub_token_tail ;
+        } // if
+        else {
+          return token ;
+        } // else
+      } // if
+    } // for  ]
+
+    return token ;
+  } // CheakInt()
+
+  public: virtual string ChangeToken( string token ) {
+    if ( token.compare( "t" ) == 0 ) {
+      return "#t" ;
+    } // if
+    else if ( token.compare( "()" ) == 0 ) {
+      return "nil" ;
+    } // else if 
+    else if ( token.compare( "#f" ) == 0 ) {
+      return "nil" ;
+    } // else if 
+    else if ( token.at( 0 ) == '\"' ) {
+      return token ;
+    } // else if 
+
+    token = CheakInt( token ) ;
+    token = CheckFloat( token ) ;
+    token = DealWithOperate( token ) ;
+    return token ;
+  } // ChangeToken()
   
-} g_classCategory ;
+} 
+g_classCategory ;
 
 class GetTokenMachine {
   protected: bool m_isFile ;
   protected: string m_token ;
   protected: bool m_end ;
   protected: char m_nextChar ; // used to cheak
-  protected: char m_bufferDelimiter  ; // used to save delimiter
+  protected: bool m_bufferDelimiter  ; // used to check m_nextChar is delimiter
   protected: string m_bufferToken ;
-  
+  protected: int m_line ;
+  protected: int m_column ;
+  protected: int m_lastColumn ;
   public: GetTokenMachine() {
     try {
       m_isFile = false ;
@@ -119,6 +222,9 @@ class GetTokenMachine {
       m_nextChar = '\0' ;
       m_bufferDelimiter = '\0' ;
       m_bufferToken = "" ;
+      m_line = 1 ;
+      m_column = 0 ;
+      m_lastColumn = 0 ;
     } // try
     catch( exception &e ) {
       // cerr << e.what() << " ," << "in line : " << __LINE__ << endl ; 
@@ -128,19 +234,47 @@ class GetTokenMachine {
   } // GetTokenMachine()
   
   protected: bool IsDelimiter( char ch ) {
-    if ( ch == '\"' || ch == '\'' || ch == '.' || ch == ',' || ch == '*' ||
-    ch == '!' || ch == '@' || ch == '#' || ch == '$' || ch == '%' ||
-    ch == '^' || ch == '&' || ch == '(' || ch == ')' || ch == '[' ||
-    ch == ']' || ch == '{' || ch == '}' || ch == '|' || ch == ';' ||
-    ch == ':' || ch == ';' || ch == '/' || ch == '?' || ch == '<' || 
-    ch == '=' || ch == '>' || ch == '+' || ch == '-' ) {
+    if ( ch == '\"' || ch == '\'' || 
+         ch == '(' || ch == ')' || ch == ';' ) {
       
       return true ;
     } // if
     
     return false ;
   } // IsDelimiter()
-  
+
+  /*
+  protected: bool IsDelimiter( char ch ) {
+    if ( ch == '\"' || ch == '\'' || ch == '.' || ch == ',' || ch == '*' ||
+         ch == '@' || ch == '#' || ch == '$' || ch == '%' ||
+         ch == '^' || ch == '&' || ch == '(' || ch == ')' || ch == '[' ||
+         ch == ']' || ch == '{' || ch == '}' || ch == '|' || ch == ';' ||
+         ch == ':' || ch == ';' || ch == '/' || ch == '?' || ch == '<' || 
+         ch == '=' || ch == '>' || ch == '+' || ch == '-' ) {
+      
+      return true ;
+    } // if
+    
+    return false ;
+  } // IsDelimiter()
+  */
+  protected: virtual bool GetChar( char &ch ) {
+
+    if ( cin.get( ch ) ) {
+      m_column += 1 ;
+      if ( ch == '\n' ) {
+        m_lastColumn = m_column ;
+        m_column = 0 ;
+      } // if
+
+      return true ;
+    } // if
+    else {
+      return false ;
+    } // else
+
+  } // GetChar()
+
   protected: virtual string DelimiterDeal( string token ) {
     token = token + string( 1, m_bufferDelimiter ) ;
     m_bufferDelimiter = '\0' ;
@@ -151,43 +285,103 @@ class GetTokenMachine {
     m_bufferDelimiter = m_nextChar ;
     return "" ; 
   } // CheakDelimiter()
-  
-  
+
+  protected: virtual string ReadWholeLine() {
+
+    while ( m_nextChar != '\n' && ! cin.eof() ) {
+      GetChar( m_nextChar );
+    }  // while
+
+    return "" ;
+  } // ReadWholeLine()
+
+  protected: virtual void ChangeToken( string &token ) {
+    if ( m_nextChar == 'n' ) {
+      token = token + string( 1, '\n' ) ;
+    } // if
+    else if ( m_nextChar == 't' ) {
+      token = token + string( 1, '\t' ) ;
+    } // if
+    else if ( m_nextChar == '0' ) {
+      token = token + string( 1, '\0' ) ;
+    } // if
+    else if ( m_nextChar == '\\' ) {
+      token = token + string( 1, '\\' ) ;
+    } // if
+    else if ( m_nextChar == '\'' ) {
+      token = token + string( 1, '\'' ) ;
+    } // if
+    else if ( m_nextChar == '\"' ) {
+      token = token + string( 1, '\"' ) ;
+    } // if
+    else {
+      token = token + string( 1, '\\' ) ;
+      token = token + string( 1, m_nextChar ) ;
+    } // else
+  } // ChangeToken()
+
+  protected: virtual string ReadString() {
+    string token = "" ;
+    do {
+      bool continue_choise  = false ;
+      if ( m_nextChar == '\\' ) {
+        GetChar( m_nextChar );
+        ChangeToken( token ) ;
+        GetChar( m_nextChar );  
+        continue_choise = true ;            
+      } // if 
+
+      if ( ! continue_choise ) {
+        token = token + string( 1, m_nextChar ) ;
+        GetChar( m_nextChar );
+      } // if
+
+    } while ( m_nextChar != '\"' && m_nextChar != '\n' ) ; // while()
+    if ( m_nextChar == '\n' ) {
+      return "ERROR (no closing quote) : END-OF-LINE encountered at Line "+ To_String( m_line ) 
+      + " Column " + To_String( m_lastColumn ) ;
+    } // if
+
+    token = token + string( 1, m_nextChar ) ;
+    return token ;
+  } // ReadString()
+
+  protected: virtual string DealDelimiter( char ch ) {
+
+    if ( ch == ';' ) {
+      m_line += 1 ;
+      return ReadWholeLine() ;
+    } // if
+    else if ( ch == '\"' ) {
+      return ReadString() ;
+    } // else if
+
+    return string( 1, ch ) ;
+  } // DealDelimiter()
+
   protected: bool GetToken( string & token ) {
     try {
-      bool isEmpty = false ;
-      if ( m_bufferToken != "" ) {
-        token = m_bufferToken ;
-        m_bufferToken = "" ;
-        return isEmpty ;
-      } // if
-      // if read delimite we need to save the token and return
-      if ( m_bufferDelimiter != '\0' ) {
-        token = DelimiterDeal( token ) ;
-        return isEmpty ;
-      } // if
-      // this means our buffer have a delimiter we need to use it first 
-      
-      cin.get( m_nextChar ) ;
-      while ( m_nextChar != '\t' && m_nextChar != ' ' && m_nextChar != '\n' &&
-      ! IsDelimiter( m_nextChar ) && ! cin.eof() ) {
-        token = token + string( 1, m_nextChar ) ;
-        cin.get( m_nextChar ) ;
-      } // while
-      
-      if ( IsDelimiter( m_nextChar ) ) {
-        token += CheakDelimiter() ;
-      } // if m_nextChar is delimiter, it will leave while and go to here
-      
-      if ( ! cin.eof() ) {
-        return isEmpty  ;
-      } // if
-      else return true ;
+      bool delimiter_is = false ;
+      while ( GetChar( m_nextChar ) && ! delimiter_is && m_nextChar != '\n' &&
+              m_nextChar != '\t' && m_nextChar != ' '  ) {
+        if ( ! IsDelimiter( m_nextChar ) ) {
+          token = token + string( 1, m_nextChar ) ;
+        } // if
+        else {
+          token = token + DealDelimiter( m_nextChar ) ;
+        } // else
+      } // while 
+
+      if ( cin.eof() ) {
+        m_nextChar = '\0' ;
+        return true ;
+      } // if 
+
+      return false ;
     } // try 
     catch( exception &e ) {
       throw invalid_argument( e.what() ) ;
     } // catch
-    
   } // GetToken()
   
   
@@ -233,7 +427,7 @@ class GetTokenMachine {
   } // ReturnNextChar()
   
   public: bool IsEnterChar() {
-    if ( m_nextChar == '\n' || m_end ) { 
+    if ( m_nextChar == '\n' ) { 
       return true ;
     } // if 
     
@@ -241,157 +435,49 @@ class GetTokenMachine {
     
   } // IsEnterChar()
   
-} getTokenMachine ;
+  public: void ReloadLine() {
+    m_line = 1 ;
+  } // ReloadLine() 
 
-class PL_GetToken : public GetTokenMachine {
-  
-  
-  protected: string ReadString( string token ) {
-    token += m_bufferDelimiter ;
-    m_bufferDelimiter = '\0' ;
-    cin.get( m_nextChar ) ;
-    while ( m_nextChar != '\n' && m_nextChar != '\"' && cin.eof() != true ) {
-      token += m_nextChar ;
-      cin.get( m_nextChar ) ;
-    } // while
-    
-    if ( m_nextChar == '\"' && ! cin.eof() ) {
-      token += m_nextChar ;
-    } // if
-    else if ( m_nextChar == '\n' || cin.eof() == true  ) {
-      string errorMessage = token + "->the token not exist"  ;
-      throw invalid_argument( errorMessage.c_str() )  ;
-    } // else if
-    
-    return token ;
-  } // ReadString()
-  
-  protected: string ReadOperate( string token ) {
-    char tempDelimiter = m_bufferDelimiter ;
-    m_bufferDelimiter = '\0' ;
-    string tempToken = "" ;
-    m_end = GetToken( token ) ;
-    if ( token != "" ) {
-      return tempDelimiter + token ;
-    } // if
-    else {
-      return string( 1, tempDelimiter ) ;
-    } // else
-  } // ReadOperate()
-  
-  protected: string ReadPoundSign( string token ) {
-    char tempDelimiter = m_bufferDelimiter ;
-    m_bufferDelimiter = '\0' ;
-    string tempToken = "" ;
-    m_end = GetToken( token ) ;
-    if ( token != "" ) {
-      return tempDelimiter + token ;
-    } // if
-    else {
-      return string( 1, tempDelimiter ) ;
-    } // else  
-  } // ReadPoundSign()
-  
-  protected: string ReadDot() {
-    string token = "" ;
-    char lastChar = '\0' ;
-    cin.get( m_nextChar ) ;
-    while ( m_nextChar != '\t' && m_nextChar != ' ' && m_nextChar != '\n' && ! IsDelimiter( m_nextChar ) 
-    && ! cin.eof() ) {
-      token = token + string( 1, m_nextChar ) ;
-      lastChar = m_nextChar ;
-      cin.get( m_nextChar ) ;
-    } // while
-    
-    cin.putback( m_nextChar ) ;
-    m_nextChar = lastChar ;
-    if ( token != "" ) {
-      if ( IsNum( token ) ) {
-        return "." + token ;
-      } // if
-      else {
-        cin.putback( m_nextChar ) ;
-        m_nextChar = '\0' ;
-        for ( int i = token.size() ; i >= 0 ; i -- ) {
-          cin.putback( token[i] ) ;
-        } // for
-        
-        return "." ;
-      } // else
-    } // if
-    else {
-      m_bufferDelimiter = '.' ;
-      return "" ;
-    } // else
-  } // ReadDot()
-  
-  protected: string PutDelimiterToBuffer() {
-    m_bufferDelimiter = m_nextChar ;
-    return "" ; 
-  } // PutDelimiterToBuffer()
-  
-  protected: virtual string CheakDelimiter() {
-    
-    if ( m_nextChar == '.' ) {
-      return ReadDot() ; 
-    } // if
-    else {
-      return PutDelimiterToBuffer() ;
-    } // else
-    
-  } // CheakDelimiter()
-  
-  protected: virtual string DelimiterDeal( string token ) {
-    try {
-      if ( m_bufferDelimiter == '\"' ) {
-        token = ReadString( token ) ;
-      } // if
-      else if ( m_bufferDelimiter == '+' || m_bufferDelimiter == '-' ) {
-        token = ReadOperate( token ) ;
-      } // else if
-      else if ( m_bufferDelimiter == '#' ) {
-        token = ReadPoundSign( token ) ;
-      } // else if 
-      else {
-        token = token + string( 1, m_bufferDelimiter ) ;
-        m_bufferDelimiter = '\0' ;
-      } // else
-      
-      return token ;
-      
-    } // try
-    catch( exception &e ) {
-      throw invalid_argument( e.what() ) ;
-    } // catch
-    
-  } // DelimiterDeal()
-  
-  protected: bool IsNum( string str ) {
-    for ( int i = 0 ; i < str.length() ; i++ ) {
-      if ( str.at( i ) < 48 || str.at( i ) > 57 ) {
-        return false ;
-      } // if
-    } // for
-    
-    return true ;
-  } // IsNum()
-  
-} g_pl_GetToken ;
+} 
+getTokenMachine ;
+
 
 int main() {
+
+  cout << "Welcome to OurScheme!" << endl ;
+  char test_number = 0 ;
+  do {
+    cin.get( test_number ) ;
+  } while ( test_number != '\n' ) ; // while
+  cout << endl  ;
+
   string token = "" ;
   bool end ;
-  PL_GetToken pl_GetToken ;
+  bool normal_end = false ;
+  GetTokenMachine pl_GetToken ;
+  TokenClassCategory tokenCategory ;
   do {
     end = pl_GetToken.GetNextToken( token ) ; // end is a bool means the page is EOF if end is false
-    
+
     if ( token != "" ) {
-      // here we can put some choise to get token like's string
-      cout << token << ' ';
+      cout << "> " ;
+
+      if ( token.compare( "(exit)" ) != 0 ) {
+        cout << tokenCategory.ChangeToken( token ) << endl << endl  ;
+        pl_GetToken.ReloadLine() ;
+      } // if
+      else {
+        end = false ;
+        normal_end = true ;
+      } // else
+      
     } // if the compare is very important!!! that can cheak the token does read something   
-    
-    if ( pl_GetToken.IsEnterChar() ) {
-      cout << '\n' ;
-    } // if     
-  } while ( end ) ;   // this while is we can loading all token of page    
+
+    if ( end == false && ! normal_end == true ) {
+      cout << "> ERROR (no more input) : END-OF-FILE encountered" << endl ;
+    } // if 
+  } while ( end ) ;   // this while is we can loading all token of page
+  cout << "Thanks for using OurScheme!" ;  
+
 } // main()
