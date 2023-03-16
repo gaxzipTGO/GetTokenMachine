@@ -87,13 +87,13 @@ class TokenClassCategory {
 
   } // IsFloat()
 
-  protected: virtual string AddZero( string token ) {
+  protected: virtual string AddZero_Back ( string token ) {
     for ( int i = token.size() ; i < 3 ; i ++ ) {
       token = token + string( 1, '0' ) ;
     } // for
 
     return token ;
-  } // AddZero()
+  } // AddZero_Back ()
 
   protected: virtual string RoundingUP( string token ) {
     if ( token.at( 3 ) > '4' ) {
@@ -103,7 +103,7 @@ class TokenClassCategory {
     return token.substr( 0, 3 ) ;
   } // RoundingUP()
 
-  protected: virtual string DealWithOperate( string token ) {
+  protected: virtual string DealWithOperater( string token ) {
   /*
     看第一項是不是加號 如果是的話並且後面是數字的話把他給清除
   */
@@ -114,9 +114,9 @@ class TokenClassCategory {
     } // if
 
     return token ;
-  } // DealWithOperate()
+  } // DealWithOperater()
 
-  protected: virtual string CheckFloat( string token ) {
+  protected: virtual string DealWithDot_Back( string token ) {
     bool int_is = true ;
     for ( int i = 0 ; i < token.size() && int_is == true ; i ++ ) {
       if ( token.at( i ) == '.' ) {
@@ -132,7 +132,7 @@ class TokenClassCategory {
         else if ( sub_token_tail.size() < 3 ) {
           if ( sub_token_head.at( sub_token_head.size()-1 ) >= '0' && 
                sub_token_head.at( sub_token_head.size()-1 ) <= '9' ) {
-            return sub_token_head + '.' + AddZero( sub_token_tail ) ;
+            return sub_token_head + '.' + AddZero_Back ( sub_token_tail ) ;
           } // if
         } // else if 要做補數
         else if ( sub_token_tail.size() > 3 ) {
@@ -145,11 +145,11 @@ class TokenClassCategory {
     } // for
 
     return token ;
-  } // CheckFloat()
+  } // DealWithDot_Back()
 
-  protected: virtual string CheakNULL( string token ) {
+  protected: virtual string AddZero_Front( string token ) {
   /*
-    確認給進來的這一項是不是空的 可以無視一次+ or - 是的話就可以在最尾巴加上 '0'
+    確認給進來的這一項是不是空的 是的話就可以在最尾巴加上 '0' (可以無視一次+ or - )
   */
     if ( token.size() == 0 ) {
       return "0" ;
@@ -162,24 +162,24 @@ class TokenClassCategory {
     } // if 
 
     return token ;
-  } // CheakNULL()
+  } // AddZero_Front()
 
-  protected: virtual string CheakInt( string token ) {
+  protected: virtual string DealWithDot_Front( string token ) {
     for ( int i = 0 ; i < token.size()  ; i ++ ) {
       if ( token.at( i ) == '.' ) {
         string sub_token_head = token.substr( 0, i ) ;
         string sub_token_tail = token.substr( i+1, token.size() - i ) ;
         if ( IsInt( sub_token_tail ) ) {
-          return CheakNULL( sub_token_head ) + string( 1, '.' ) + sub_token_tail ;
+          return AddZero_Front( sub_token_head ) + string( 1, '.' ) + sub_token_tail ;
         } // if
         else {
           return token ;
         } // else
       } // if
-    } // for  ]
+    } // for  
 
     return token ;
-  } // CheakInt()
+  } // DealWithDot_Front()
 
   public: virtual string ChangeToken( string token ) {
     if ( token.compare( "t" ) == 0 ) {
@@ -195,9 +195,9 @@ class TokenClassCategory {
       return token ;
     } // else if 
 
-    token = CheakInt( token ) ;
-    token = CheckFloat( token ) ;
-    token = DealWithOperate( token ) ;
+    token = DealWithDot_Front( token ) ;  // 在小數點前補0
+    token = DealWithDot_Back( token ) ;  // 在小數點後補0 四捨五入 有字母不會做改變
+    token = DealWithOperater( token ) ;  // 如果是+就把+刪掉 其餘不動
     return token ;
   } // ChangeToken()
   
@@ -208,7 +208,7 @@ class GetTokenMachine {
   protected: bool m_isFile ;
   protected: string m_token ;
   protected: bool m_end ;
-  protected: char m_nextChar ; // used to cheak
+  protected: char m_nextChar ; // used to Check
   protected: bool m_bufferDelimiter  ; // used to check m_nextChar is delimiter
   protected: string m_bufferToken ;
   protected: int m_line ;
@@ -281,13 +281,14 @@ class GetTokenMachine {
     return token ;
   } // DelimiterDeal()
   
-  protected: virtual string CheakDelimiter() {
+  protected: virtual string CheckDelimiter() {
+    // 型別要不要改成void function名要不要改名為SaveDelimiterToBuffer 或 SaveDelimiter
     m_bufferDelimiter = m_nextChar ;
     return "" ; 
-  } // CheakDelimiter()
+  } // CheckDelimiter()
 
   protected: virtual string ReadWholeLine() {
-
+    // 型別要不要改成void
     while ( m_nextChar != '\n' && ! cin.eof() ) {
       GetChar( m_nextChar );
     }  // while
@@ -326,17 +327,17 @@ class GetTokenMachine {
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
         GetChar( m_nextChar );
-        ChangeToken( token ) ;
+        ChangeToken( token ) ;// 如果進到這個function裡的else 那會是啥情況
         GetChar( m_nextChar );  
         continue_choise = true ;            
       } // if 
 
-      if ( ! continue_choise ) {
+      if ( ! continue_choise ) { //所以是continue_choise == false才會進這if?
         token = token + string( 1, m_nextChar ) ;
         GetChar( m_nextChar );
       } // if
 
-    } while ( m_nextChar != '\"' && m_nextChar != '\n' ) ; // while()
+    } while ( m_nextChar != '\"' && m_nextChar != '\n' ) ; // do-while()
     if ( m_nextChar == '\n' ) {
       return "ERROR (no closing quote) : END-OF-LINE encountered at Line "+ To_String( m_line ) 
       + " Column " + To_String( m_lastColumn ) ;
@@ -472,7 +473,7 @@ int main() {
         normal_end = true ;
       } // else
       
-    } // if the compare is very important!!! that can cheak the token does read something   
+    } // if the compare is very important!!! that can Check the token does read something   
 
     if ( end == false && ! normal_end == true ) {
       cout << "> ERROR (no more input) : END-OF-FILE encountered" << endl ;
