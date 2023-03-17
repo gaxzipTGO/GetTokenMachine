@@ -87,13 +87,13 @@ class TokenClassCategory {
 
   } // IsFloat()
 
-  protected: virtual string AddZero_Back ( string token ) {
+  protected: virtual string AddZero_Back( string token ) {
     for ( int i = token.size() ; i < 3 ; i ++ ) {
       token = token + string( 1, '0' ) ;
     } // for
 
     return token ;
-  } // AddZero_Back ()
+  } // AddZero_Back()
 
   protected: virtual string RoundingUP( string token ) {
     if ( token.at( 3 ) > '4' ) {
@@ -132,7 +132,7 @@ class TokenClassCategory {
         else if ( sub_token_tail.size() < 3 ) {
           if ( sub_token_head.at( sub_token_head.size()-1 ) >= '0' && 
                sub_token_head.at( sub_token_head.size()-1 ) <= '9' ) {
-            return sub_token_head + '.' + AddZero_Back ( sub_token_tail ) ;
+            return sub_token_head + '.' + AddZero_Back( sub_token_tail ) ;
           } // if
         } // else if 要做補數
         else if ( sub_token_tail.size() > 3 ) {
@@ -327,12 +327,12 @@ class GetTokenMachine {
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
         GetChar( m_nextChar );
-        ChangeToken( token ) ;// 如果進到這個function裡的else 那會是啥情況
+        ChangeToken( token ) ; // 如果進到這個function裡的else 那會是啥情況
         GetChar( m_nextChar );  
         continue_choise = true ;            
       } // if 
 
-      if ( ! continue_choise ) { //所以是continue_choise == false才會進這if?
+      if ( ! continue_choise ) { // 所以是continue_choise == false才會進這if?
         token = token + string( 1, m_nextChar ) ;
         GetChar( m_nextChar );
       } // if
