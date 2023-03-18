@@ -2,6 +2,7 @@
 # include <string>
 # include <cstdio>
 # include <stdexcept>
+# include <queue>
 
 using namespace std ;
 
@@ -40,6 +41,7 @@ bool HaveWord( char ch ) {
   
   return false ;
 } // HaveWord()
+
 
 class TokenClassCategory {
   
@@ -180,6 +182,10 @@ class TokenClassCategory {
     return token ;
   } // DealWithDot_Front()
 
+  public: virtual int GetThisTokenType( string token ) {
+    return SYMBOL ;
+  }
+
   public: virtual string ChangeToken( string token ) {
     if ( token.compare( "t" ) == 0 ) {
       return "#t" ;
@@ -203,11 +209,10 @@ class TokenClassCategory {
 } 
 g_classCategory ;
 
-
 class GetTokenMachine {
   protected: bool m_isFile ;
   protected: string m_token ;
-  protected: bool m_end ;
+  protected: bool m_notend ;
   protected: char m_nextChar ; // used to Check
   protected: bool m_bufferDelimiter  ; // used to check m_nextChar is delimiter
   protected: string m_bufferToken ;
@@ -222,7 +227,7 @@ class GetTokenMachine {
     try {
       m_isFile = false ;
       m_token = "" ;
-      m_end = false ;
+      m_notend = true ;
       m_nextChar = '\0' ;
       m_bufferDelimiter = '\0' ;
       m_bufferToken = "" ;
@@ -351,13 +356,14 @@ class GetTokenMachine {
 
   protected: virtual string ReadString() {
     string token = "" ;
+    bool not_end ;
     do {
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
-        GetChar( m_nextChar );
+        not_end = GetChar( m_nextChar );
         UpdateToken( token ) ; // 如果進到這個function裡的else 那會是啥情況
                                // 我放在那個function裡面解釋
-        GetChar( m_nextChar );  
+        not_end = GetChar( m_nextChar );  
         continue_choise = true ;            
       } // if 
 
@@ -367,12 +373,12 @@ class GetTokenMachine {
         你知道為什麼我要這樣空格嗎 因為GetToken沒寫好 如果打那個東西在註解裡也會被夏式語法擋住
         */
         token = token + string( 1, m_nextChar ) ;
-        GetChar( m_nextChar );
+        not_end = GetChar( m_nextChar );
       } // if
 
-    } while ( m_nextChar != '\"' && m_nextChar != '\n' ) ; // do-while()
-    if ( m_nextChar == '\n' ) {
-      return ErrorMessage( "no closing quote", m_line-1, m_lastColumn ) ;
+    } while ( m_nextChar != '\"' && m_nextChar != '\n' && not_end ) ; // do-while()
+    if ( m_nextChar == '\n' || ! not_end ) {
+      return ErrorMessage( "no closing quote", m_line, m_lastColumn ) ;
     } // if
 
     token = token + string( 1, m_nextChar ) ;
@@ -405,28 +411,26 @@ class GetTokenMachine {
       return ErrorMessage( "unexpected token", buffer_line, buffer_column, '.' ) ;
     } // if
 
-    return string( 1, '.' ) + sub_token_back ;
+    return sub_token_front + string( 1, '.' ) + sub_token_back ;
   } // ReadDot()
 
-  protected: virtual string ReadLEFT_PAREN() {
-    string nextToken ;
-    GetNextToken( nextToken ) ;
-    return "(" + nextToken ;
-  } // ReadLEFT_PAREN()
+  protected: virtual string ReadPAREN( char ch ) {
+    return string( 1, ch )  ;
+  } // ReadPAREN()
 
   protected: virtual string DealDelimiter( string token, char ch ) {
 
     if ( ch == ';' ) {
-      return token + ReadWholeLine() ;
+      return ReadWholeLine() ;
     } // if
     else if ( ch == '\"' ) {
-      return token + ReadString() ;
+      return ReadString() ;
     } // else if
     else if ( ch == '.' ) {
-      return token + ReadDot( token ) ;
+      return ReadDot( token ) ;
     } // else if
-    else if ( ch == '(' ) {
-      return token + ReadLEFT_PAREN() ;
+    else if ( ch == '(' || ch == ')' ) {
+      return ReadPAREN( ch ) ;
     } // else if
 
     return string( 1, ch ) ;
@@ -453,23 +457,46 @@ class GetTokenMachine {
   } // Reload() 
 
 } 
-getTokenMachine ;
+g_getTokenMachine ;
 
 bool GetTokenMachine :: GetToken( string & token ) {
   try {
+
+    if ( IsDelimiter( m_nextChar ) ) {
+      token = DealDelimiter( token, m_nextChar ) ;
+      if ( ! GetChar( m_nextChar ) ) {
+        m_nextChar = '\0' ;
+      } // if
+
+      return true ;
+    } // if
+
+    if ( ! IsDelimiter( m_nextChar ) && 
+         m_nextChar != '\n' && m_nextChar != '\t' && 
+         m_nextChar != ' ' && m_nextChar != '\0' ) {
+      token = token + string( 1, m_nextChar ) ;
+    } // if
+
     while ( GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
             m_nextChar != '\n' && m_nextChar != '\t' && m_nextChar != ' '  ) {
       token = token + string( 1, m_nextChar ) ;
     } // while 
 
-    if ( IsDelimiter( m_nextChar ) )
-      token = DealDelimiter( token, m_nextChar ) ;
+    if ( m_nextChar == '.' ) {
+      token = ReadDot( token ) ;
+      return true ;
+    } // if
+
+    if ( token.size() != 0 ) {
+      return true ;
+    } // if
+
     if ( cin.eof() ) {
       m_nextChar = '\0' ;
-      return true ;
+      return false ;
     } // if 
 
-    return false ;
+    return true ;
   } // try 
   catch( exception &e ) {
     throw invalid_argument( e.what() ) ;
@@ -482,10 +509,10 @@ bool GetTokenMachine :: GetNextToken( string &Out_token ) {
   */
   try {
     m_token = "" ;
-    if ( ! m_end ) {
+    if ( m_notend ) {
       do {                
-        m_end = GetToken( m_token ) ;
-        if ( m_end == true ) {
+        m_notend = GetToken( m_token ) ;
+        if ( m_notend == false ) {
           Out_token = ErrorMessage( "no more input" ) ; 
           return false ;
         } // if        
@@ -511,30 +538,118 @@ bool GetTokenMachine :: GetNextToken( string &Out_token ) {
   
 } // GetTokenMachine::GetNextToken()
 
+class Statement {
+
+  protected : GetTokenMachine m_pl_tokenGetter ;
+  protected : TokenClassCategory m_tokenCategorier ;
+  protected : bool m_not_end ;
+  protected : string m_nextToken ;
+
+  public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
+
+    m_not_end = true ;
+    m_pl_tokenGetter = token_get ;
+    m_tokenCategorier = token_category ;
+    m_nextToken = "" ;
+
+  } // Statement()
+
+  protected : string GetToken() {
+
+    string token = "" ;
+    m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; 
+    return token ;
+
+  } // GetToken()
+
+  protected : bool IsATOM( string token ) {
+
+    if ( m_tokenCategorier.GetThisTokenType( token ) == SYMBOL &&
+         m_tokenCategorier.GetThisTokenType( token ) == INT &&
+         m_tokenCategorier.GetThisTokenType( token ) == FLOAT &&
+         m_tokenCategorier.GetThisTokenType( token ) == STRING &&
+         m_tokenCategorier.GetThisTokenType( token ) == NIL &&
+         m_tokenCategorier.GetThisTokenType( token ) == T ) {
+      return true ;
+    } // if
+    else if ( m_tokenCategorier.GetThisTokenType( token ) == LEFT_PAREN ) {
+      m_nextToken = GetToken() ;
+      if ( m_tokenCategorier.GetThisTokenType( token ) == RIGHT_PAREN ) {
+        return true ;
+      } // if
+      else {
+        return false ;
+      } // else 
+    } // else 
+
+    return false ;
+
+  } // IsATOM()
+
+  protected : bool CheckTheS_EXP( string token ) {
+    
+    if ( IsATOM( token ) ) {
+      return true ;
+    } // if
+    else if ( m_tokenCategorier.GetThisTokenType( token ) == LEFT_PAREN ) {
+     if ( CheckTheS_EXP( m_nextToken ) ) {
+      
+     } // if 
+    } // else if
+    else if ( m_tokenCategorier.GetThisTokenType( token ) == QUOTE ) {
+
+    } // else if 
+    else {
+      return false ;
+    } // else 
+
+    return false ;
+
+
+  } // CheckTheS_EXP()
+
+  protected : string GetStatement() {
+
+    string token = "" ;
+    token = GetToken() ;
+    token = m_tokenCategorier.ChangeToken( token ) ;
+    return token ;
+
+  } // GetStatement() 
+
+  public : void PrintAllOfStatement() {
+
+    string statement = "" ;
+    bool normal_end = false ;
+    do {
+      statement = GetStatement() ;
+      cout << endl ;
+      // end is a bool means the page is EOF ,if end is false
+      cout << "> " ;
+      if ( statement.compare( "(exit)" ) != 0 ) {
+        cout << statement << endl  ;
+        m_pl_tokenGetter.Reload() ;
+      } // if
+      else {
+        m_not_end = true ;
+        normal_end = true ;
+      } // else
+    } while ( m_not_end ) ;   // this while is we can loading all token of page
+    cout << "Thanks for using OurScheme!" ;  
+
+  } // PrintAllOfStatement()
+
+} 
+; // Statemant
+
+
 int main() {
 
   cout << "Welcome to OurScheme!" << endl ;
-  int test_number = 0 ;
-  cin >> test_number ;
-
-  string token = "" ;
-  bool end ;
-  bool normal_end = false ;
-  GetTokenMachine pl_GetToken ;
-  TokenClassCategory tokenCategory ;
-  do {
-    cout << endl ;
-    end = pl_GetToken.GetNextToken( token ) ; // end is a bool means the page is EOF if end is false
-    cout << "> " ;
-    if ( token.compare( "(exit)" ) != 0 ) {
-      cout << tokenCategory.ChangeToken( token ) << endl  ;
-      pl_GetToken.Reload() ;
-    } // if
-    else {
-      end = false ;
-      normal_end = true ;
-    } // else
-  } while ( end ) ;   // this while is we can loading all token of page
-  cout << "Thanks for using OurScheme!" ;  
-
+  char testNum[10] ;
+  cin.getline( testNum, sizeof( testNum ) )  ;
+  GetTokenMachine getToken ;
+  TokenClassCategory tokenclass ;
+  Statement statement( getToken, tokenclass ) ;
+  statement.PrintAllOfStatement() ;
 } // main()
