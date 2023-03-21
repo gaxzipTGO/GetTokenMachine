@@ -2,6 +2,7 @@
 # include <string>
 # include <cstdio>
 # include <stdexcept>
+# include <stack>
 
 using namespace std ;
 
@@ -20,7 +21,8 @@ enum G_Category {
 
 struct Token {
   string token_string ;
-  int type ;
+  int colnum = 0 ;
+  int line = 0 ;
 }
 ;
 
@@ -41,6 +43,7 @@ bool HaveWord( char ch ) {
   return false ;
 } // HaveWord()
 
+
 class TokenClassCategory {
   
   protected: virtual bool IsInt( string token ) {
@@ -57,7 +60,43 @@ class TokenClassCategory {
     return true ;
   } // IsInt() 
 
-  protected: virtual bool IsFloat( string token ) {
+  protected: virtual bool IsInt( string token, bool noSize ) {
+
+    for ( int i = 0 ; i < token.size() ; i ++ ) {
+      if ( token.at( i ) < '0' || token.at( i ) > '9' ) {
+        return false ; 
+      } // if
+    } // for
+
+    return true ;
+  } // IsInt()   
+
+  protected: virtual bool IsIntMissOperate( string token, bool noSize ) {
+  /*
+    確認給進來的這一項是不是數字 可以無視一次+ or - 是的話回傳一個 true
+  */
+    bool miss = true ;
+    for ( int i = 0 ; i < token.size() ; i ++ ) {
+      if ( ( token.at( i ) < '0' || token.at( i ) > '9' ) ) {
+        if ( miss == false ) {
+          return false ;
+        } // if
+
+        if ( token.at( i ) == '+' || token.at( i ) == '-' ) {
+          miss = false ;
+        } // if
+        else {
+          return false ;
+        } // else
+       
+      } // if
+    } // for
+
+    return true ;
+
+  } // IsIntMissOperate()
+
+  protected: virtual bool IsIntMissOperate( string token ) {
   /*
     確認給進來的這一項是不是數字 可以無視一次+ or - 是的話回傳一個 true
   */
@@ -83,6 +122,24 @@ class TokenClassCategory {
     } // for
 
     return true ;
+
+  } // IsIntMissOperate()
+
+  protected: virtual bool IsFloat( string token ) {
+    size_t find = token.find( '.' ) ;
+    if ( token.npos != find ) {
+      string sub_string_head = token.substr( 0, find ) ;
+      string sub_string_tail = token.substr( find+1, token.size()-find ) ;
+      if ( IsIntMissOperate( sub_string_head, false ) &&
+           IsInt( sub_string_tail, false ) ) {
+        return true ;
+      } // if
+    } // if
+    else {
+      return false ;
+    }
+
+    return false ;
 
   } // IsFloat()
 
@@ -121,7 +178,7 @@ class TokenClassCategory {
       if ( token.at( i ) == '.' ) {
         string sub_token_head = token.substr( 0, i ) ;
         string sub_token_tail = token.substr( i+1, token.size() - i ) ;
-        if ( ! IsFloat( sub_token_head ) ) {
+        if ( ! IsIntMissOperate( sub_token_head ) ) {
           return token ;
         } // if
 
@@ -199,15 +256,64 @@ class TokenClassCategory {
     token = DealWithOperater( token ) ;  // 如果是+就把+刪掉 其餘不動
     return token ;
   } // ChangeToken()
+
+  protected: virtual bool CheckSymbol( string token ) {
+    if ( token.npos == token.find( "\"" ) && token.npos == token.find( ";" ) 
+         && token.npos == token.find( " " ) && token.npos == token.find( "\t" ) 
+         && token.npos == token.find( "\n" ) ) {
+      return true ; 
+    } // if
+    else
+      return false;
+  } // CheckSymbol()
   
+  public : virtual int GetThisTokenType( string token ) {
+    if ( token == "(" ) {
+      return LEFT_PAREN ;
+    } // if
+    else if ( token == ")" ) {
+      return RIGHT_PAREN ;
+    } // else if 
+    else if ( token == "t" || token == "#t" ) {
+      return T ;
+    } // else if
+    else if ( token == "nil" || token == "#f" ) {
+      return NIL ;
+    } // else if
+    else if ( token == "." ) {
+      return DOT ;
+    } // else if
+    else if ( token == "\'" ) {
+      return QUOTE ;
+    } // else if
+    else if ( IsFloat( token ) ) {
+      return FLOAT ;
+    } // else if
+    else if ( IsIntMissOperate( token ) ) { // 只有純數字的int ex: 123 456
+      return INT ;
+    } // else if 
+    else if ( token.at( 0 ) == '+' || token.at( 0 ) == '-' ) { // +123 -456
+      if ( IsIntMissOperate( token.substr( 1, token.size() ) ) ) { 
+        return INT ;
+      } // if
+      else return STRING ;
+    } // else if
+    else if ( CheckSymbol( token ) ) {
+      return SYMBOL ;
+    } // else if
+
+    else {
+      return STRING ;
+    } // else
+  } // GetThisTokenType()
+   
 } 
 g_classCategory ;
 
-
 class GetTokenMachine {
   protected: bool m_isFile ;
-  protected: string m_token ;
-  protected: bool m_end ;
+  protected: Token m_token ;
+  protected: bool m_notend ;
   protected: char m_nextChar ; // used to Check
   protected: bool m_bufferDelimiter  ; // used to check m_nextChar is delimiter
   protected: string m_bufferToken ;
@@ -215,14 +321,14 @@ class GetTokenMachine {
   protected: int m_column ;
   protected: int m_lastColumn ;
   protected: bool m_reload_line ;
-  protected: bool GetToken( string & token ) ;
-  public: bool GetNextToken( string &Out_token ) ;
+  protected: bool GetToken( Token & token ) ;
+  public: bool GetNextToken( Token &Out_token ) ;
 
   public: GetTokenMachine() {
     try {
       m_isFile = false ;
-      m_token = "" ;
-      m_end = false ;
+      m_token.token_string = "" ;
+      m_notend = true ;
       m_nextChar = '\0' ;
       m_bufferDelimiter = '\0' ;
       m_bufferToken = "" ;
@@ -287,15 +393,6 @@ class GetTokenMachine {
     return "ERROR (" + type + ") : END-OF-FILE encountered" ;
   } // ErrorMessage()
 
-  protected: string ErrorMessage( string type, int line, int column, char ch ) {
-    while ( GetChar( m_nextChar ) && m_nextChar != '\n' ) {
-      ;
-    } // while
-
-    return "ERROR (" + type + ") : atom or '(' expected when token at Line "
-    + To_String( line ) + " Column " + To_String( column ) + " is >>" + string( 1, ch ) + "<<" ;
-  } // ErrorMessage()
-
   protected: virtual string DelimiterDeal( string token ) {
     token = token + string( 1, m_bufferDelimiter ) ;
     m_bufferDelimiter = '\0' ;
@@ -309,7 +406,7 @@ class GetTokenMachine {
     return "" ; 
   } // CheckDelimiter()
 
-  protected: virtual string ReadWholeLine() {
+  public: virtual string ReadWholeLine() {
     // 型別要不要改成void
     // 不要
     while ( m_nextChar != '\n' && ! cin.eof() ) {
@@ -351,13 +448,14 @@ class GetTokenMachine {
 
   protected: virtual string ReadString() {
     string token = "" ;
+    bool not_end ;
     do {
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
-        GetChar( m_nextChar );
+        not_end = GetChar( m_nextChar );
         UpdateToken( token ) ; // 如果進到這個function裡的else 那會是啥情況
                                // 我放在那個function裡面解釋
-        GetChar( m_nextChar );  
+        not_end = GetChar( m_nextChar );  
         continue_choise = true ;            
       } // if 
 
@@ -367,12 +465,12 @@ class GetTokenMachine {
         你知道為什麼我要這樣空格嗎 因為GetToken沒寫好 如果打那個東西在註解裡也會被夏式語法擋住
         */
         token = token + string( 1, m_nextChar ) ;
-        GetChar( m_nextChar );
+        not_end = GetChar( m_nextChar );
       } // if
 
-    } while ( m_nextChar != '\"' && m_nextChar != '\n' ) ; // do-while()
-    if ( m_nextChar == '\n' ) {
-      return ErrorMessage( "no closing quote", m_line-1, m_lastColumn ) ;
+    } while ( m_nextChar != '\"' && m_nextChar != '\n' && not_end ) ; // do-while()
+    if ( m_nextChar == '\n' || ! not_end ) {
+      return ErrorMessage( "no closing quote", m_line, m_lastColumn ) ;
     } // if
 
     token = token + string( 1, m_nextChar ) ;
@@ -392,41 +490,27 @@ class GetTokenMachine {
       sub_token_back = sub_token_back + string( 1, m_nextChar ) ;
     } // while
 
-    if ( sub_token_front.size() == 0 && sub_token_back.size() == 0 ) {
-      int buffer_line = m_line ;
-      if ( asset_line != 0 ) {
-        buffer_line = asset_line ;
-      } // if
-      else if ( m_nextChar == '\n' ) {
-        buffer_line -= 1 ;
-      } // if
+    return sub_token_front + string( 1, '.' ) + sub_token_back ;
 
-      int buffer_column = m_lastColumn ;
-      return ErrorMessage( "unexpected token", buffer_line, buffer_column, '.' ) ;
-    } // if
-
-    return string( 1, '.' ) + sub_token_back ;
   } // ReadDot()
 
-  protected: virtual string ReadLEFT_PAREN() {
-    string nextToken ;
-    GetNextToken( nextToken ) ;
-    return "(" + nextToken ;
-  } // ReadLEFT_PAREN()
+  protected: virtual string ReadPAREN( char ch ) {
+    return string( 1, ch )  ;
+  } // ReadPAREN()
 
   protected: virtual string DealDelimiter( string token, char ch ) {
 
     if ( ch == ';' ) {
-      return token + ReadWholeLine() ;
+      return ReadWholeLine() ;
     } // if
     else if ( ch == '\"' ) {
-      return token + ReadString() ;
+      return ReadString() ;
     } // else if
     else if ( ch == '.' ) {
-      return token + ReadDot( token ) ;
+      return ReadDot( token ) ;
     } // else if
-    else if ( ch == '(' ) {
-      return token + ReadLEFT_PAREN() ;
+    else if ( ch == '(' || ch == ')' ) {
+      return ReadPAREN( ch ) ;
     } // else if
 
     return string( 1, ch ) ;
@@ -448,48 +532,83 @@ class GetTokenMachine {
   public: void Reload() {
 
     m_reload_line = true ;
-    m_column = 0 ;
+    m_column = 1 ;
 
   } // Reload() 
 
 } 
-getTokenMachine ;
+g_getTokenMachine ;
 
-bool GetTokenMachine :: GetToken( string & token ) {
+bool GetTokenMachine :: GetToken( Token & token ) {
   try {
+    if ( IsDelimiter( m_nextChar ) ) {
+      token.colnum = m_column ;
+      token.line = m_line ;
+      token.token_string = DealDelimiter( token.token_string, m_nextChar ) ;
+      if ( ! GetChar( m_nextChar ) ) {
+        m_nextChar = '\0' ;
+      } // if
+
+      return true ;
+    } // if
+
+    if ( ! IsDelimiter( m_nextChar ) && 
+         m_nextChar != '\n' && m_nextChar != '\t' && 
+         m_nextChar != ' ' && m_nextChar != '\0' ) {
+      token.colnum = m_column ;
+      token.line = m_line ;
+      token.token_string = token.token_string + string( 1, m_nextChar ) ;
+    } // if
+    bool get_info = false ;
     while ( GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
             m_nextChar != '\n' && m_nextChar != '\t' && m_nextChar != ' '  ) {
-      token = token + string( 1, m_nextChar ) ;
+      if ( ! get_info ) {
+        token.colnum = m_column ;
+        token.line = m_line ;
+        get_info = true ;        
+      } // token
+      token.token_string = token.token_string + string( 1, m_nextChar ) ;
     } // while 
 
-    if ( IsDelimiter( m_nextChar ) )
-      token = DealDelimiter( token, m_nextChar ) ;
+    if ( m_nextChar == '.' ) {
+      if ( ! get_info ) {
+        token.colnum = m_column ;
+        token.line = m_line ;        
+      } // token
+      token.token_string = ReadDot( token.token_string ) ;
+      return true ;
+    } // if
+
+    if ( token.token_string.size() != 0 ) {
+      return true ;
+    } // if
+
     if ( cin.eof() ) {
       m_nextChar = '\0' ;
-      return true ;
+      return false ;
     } // if 
 
-    return false ;
+    return true ;
   } // try 
   catch( exception &e ) {
     throw invalid_argument( e.what() ) ;
   } // catch
 } // GetTokenMachine::GetToken()
 
-bool GetTokenMachine :: GetNextToken( string &Out_token ) {
+bool GetTokenMachine :: GetNextToken( Token &Out_token ) {
   /*
   the function is we can get the token but we need to chiose Out_token != "" 
   */
   try {
-    m_token = "" ;
-    if ( ! m_end ) {
+    m_token.token_string = "" ;
+    if ( m_notend ) {
       do {                
-        m_end = GetToken( m_token ) ;
-        if ( m_end == true ) {
-          Out_token = ErrorMessage( "no more input" ) ; 
+        m_notend = GetToken( m_token ) ;
+        if ( m_notend == false ) {
+          Out_token.token_string = ErrorMessage( "no more input" ) ; 
           return false ;
         } // if        
-      } while ( m_token.length() == 0 ) ;
+      } while ( m_token.token_string.length() == 0 ) ;
       Out_token = m_token ;
       return true ;
       
@@ -500,7 +619,7 @@ bool GetTokenMachine :: GetNextToken( string &Out_token ) {
   } // try
   catch ( exception &e ) {
     cout << e.what() << endl  ;
-    Out_token = "" ;
+    Out_token.token_string = "" ;
     if ( !cin.eof() ) {
       return ( GetNextToken( Out_token ) ) ;
     } // if
@@ -511,30 +630,197 @@ bool GetTokenMachine :: GetNextToken( string &Out_token ) {
   
 } // GetTokenMachine::GetNextToken()
 
+class Statement {
+
+  protected : GetTokenMachine m_pl_tokenGetter ;
+  protected : TokenClassCategory m_tokenCategorier ;
+  protected : bool m_not_end ;
+  protected : string m_nextToken ;
+  protected : stack<Token> m_get_token ;
+  protected : stack<string> m_errorMessage ;
+
+  protected : Token GetToken() ;
+  protected: string ErrorMessage( string type, int line, int column, string token ) ;
+  protected : Token GetNextToken( stack<Token> &token_wait_stack ) ;
+  protected : void CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack ) ; 
+  protected : bool CheckTheDOT_AND_S_EXP(  stack<Token>  &token_wait_stack ) ; 
+  protected : bool IsATOM( Token token, stack<Token> &token_wait_stack ) ;
+  protected : bool IsS_EXP( Token token, stack<Token> &token_wait_stack ) ;
+  protected : string GetStatement() ;
+  public : void PrintAllOfStatement() ;
+  public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
+
+    m_not_end = true ;
+    m_pl_tokenGetter = token_get ;
+    m_tokenCategorier = token_category ;
+    m_nextToken = "" ;
+
+  } // Statement()
+
+
+
+} 
+; // Statemant
+
+Token Statement :: GetToken() {
+
+  Token token ;
+  m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; 
+  return token ;
+
+} // Statement::GetToken()
+
+string Statement :: ErrorMessage( string type, int line, int column, string token ) {
+  m_pl_tokenGetter.ReadWholeLine() ;
+  return "ERROR (" + type + ") : atom or '(' expected when token at Line "
+  + To_String( line ) + " Column " + To_String( column ) + " is >>" + token + "<<" ;
+} // ErrorMessage()
+
+Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
+/*
+  從輸入的文件或stack裡面拿一個token出來 如果stack有東西就先用stack的 這樣才不會打架
+*/
+  if ( ! token_wait_stack.empty() ) {
+    Token token = token_wait_stack.top() ;
+    token_wait_stack.pop() ;
+    return token ;
+  } // if
+  else {
+    return GetToken() ;
+  } // else
+
+} // Statement::GetNextToken()
+
+bool Statement :: CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack ) {
+  Token token = GetNextToken( token_wait_stack ) ;
+  if ( m_tokenCategorier.GetThisTokenType( token.token_string ) == DOT ) {
+    Token temp_token = GetNextToken( token_wait_stack ) ;
+    if ( IsS_EXP( temp_token, token_wait_stack ) ) {
+      return true ;
+    } // if
+  } // if
+
+  token_wait_stack.push( token ) ;
+  return false ;
+} // Statement::CheckTheDOT_AND_S_EXP()
+
+void Statement :: CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack ) {
+
+  Token token = GetNextToken( token_wait_stack ) ;
+  Token temp_wait_token ;
+  while ( IsS_EXP( token, token_wait_stack ) ) {
+    token = GetNextToken( token_wait_stack ) ;
+  } // while
+
+
+
+} // Statement::CheckTheS_EXP_WHILE()
+
+bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack ) {
+
+  int type = m_tokenCategorier.GetThisTokenType( token.token_string ) ;
+  if ( type == SYMBOL ||
+       type == INT ||
+       type == FLOAT ||
+       type == STRING ||
+       type == NIL ||
+       type == T ) {
+    return true ;
+  } // if
+  else if ( type == LEFT_PAREN ) {
+    Token nextToken ;
+    nextToken = GetNextToken( token_wait_stack ) ;
+    if ( m_tokenCategorier.GetThisTokenType( nextToken.token_string ) == RIGHT_PAREN ) {
+      return true ;
+    } // if
+    else {
+      token_wait_stack.push( nextToken ) ;
+      return false ;
+    } // else 
+  } // else if 
+
+  return false ;
+
+} // Statement::IsATOM()
+
+bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack ) {
+    
+  if ( IsATOM( token, token_wait_stack ) ) {
+    return true ;
+  } // if
+  else if ( m_tokenCategorier.GetThisTokenType( token.token_string ) == LEFT_PAREN ) {
+    Token temp_token = GetNextToken( token_wait_stack ) ;
+    if ( IsS_EXP( temp_token, token_wait_stack ) ) {
+      CheckTheS_EXP_WHILE( token_wait_stack ) ; 
+      CheckTheDOT_AND_S_EXP( token_wait_stack ) ;
+      temp_token = GetNextToken( token_wait_stack ) ;
+      if ( m_tokenCategorier.GetThisTokenType( temp_token.token_string ) == RIGHT_PAREN ) {
+        return true ;
+      } // if 
+      else {
+        token_wait_stack.push( temp_token ) ;
+      } // else
+    } // if
+    else {
+      token_wait_stack.push( temp_token ) ;
+    } // else
+  } // else if 
+  else if ( m_tokenCategorier.GetThisTokenType( token.token_string ) == QUOTE ) {
+  } // else if  
+
+  
+  token_wait_stack.push( token ) ;    
+  return false ;
+
+} // Statement::IsS_EXP()
+
+string Statement :: GetStatement() {
+
+  Token token ;
+  stack<Token> wait_token_stack ;
+  token = GetNextToken( wait_token_stack ) ;
+  
+  if ( IsS_EXP( token,  wait_token_stack ) ) {
+    token.token_string = m_tokenCategorier.ChangeToken( token.token_string ) ;
+  } // if
+  else {
+    return ErrorMessage( "unexpected token", wait_token_stack.top().line, 
+                         wait_token_stack.top().colnum, wait_token_stack.top().token_string ) ;
+  } // else
+
+  return token.token_string ;
+
+} // Statement::GetStatement() 
+
+void Statement :: PrintAllOfStatement() {
+  string statement = "" ;
+  bool normal_end = false ;
+  do {
+    statement = GetStatement() ;
+    cout << endl ;
+    // end is a bool means the page is EOF ,if end is false
+    cout << "> " ;
+    if ( statement.compare( "(exit)" ) != 0 ) {
+      cout << statement << endl  ;
+      m_pl_tokenGetter.Reload() ;
+    } // if
+    else {
+      m_not_end = true ;
+      normal_end = true ;
+    } // else
+  } while ( m_not_end ) ;   // this while is we can loading all token of page
+  cout << "Thanks for using OurScheme!" ;  
+
+} // Statement::PrintAllOfStatement()
+
 int main() {
 
   cout << "Welcome to OurScheme!" << endl ;
-  int test_number = 0 ;
-  cin >> test_number ;
-
-  string token = "" ;
-  bool end ;
-  bool normal_end = false ;
-  GetTokenMachine pl_GetToken ;
-  TokenClassCategory tokenCategory ;
-  do {
-    cout << endl ;
-    end = pl_GetToken.GetNextToken( token ) ; // end is a bool means the page is EOF if end is false
-    cout << "> " ;
-    if ( token.compare( "(exit)" ) != 0 ) {
-      cout << tokenCategory.ChangeToken( token ) << endl  ;
-      pl_GetToken.Reload() ;
-    } // if
-    else {
-      end = false ;
-      normal_end = true ;
-    } // else
-  } while ( end ) ;   // this while is we can loading all token of page
-  cout << "Thanks for using OurScheme!" ;  
-
+  char testNum[10] ;
+  cin.getline( testNum, sizeof( testNum ) )  ;
+  GetTokenMachine getToken ;
+  TokenClassCategory tokenclass ;
+  Statement statement( getToken, tokenclass ) ;
+  statement.PrintAllOfStatement() ;
+  
 } // main()
