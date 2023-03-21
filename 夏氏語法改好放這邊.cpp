@@ -199,6 +199,54 @@ class TokenClassCategory {
     token = DealWithOperater( token ) ;  // 如果是+就把+刪掉 其餘不動
     return token ;
   } // ChangeToken()
+
+  protected: virtual bool CheckSymbol( string token ) {
+    if ( token.npos == token.find( "\"" ) && token.npos == token.find( ";" ) && token.npos == token.find( " " ) 
+      && token.npos == token.find( "\t" ) && token.npos == token.find( "\n" ) ) {
+      return true ; 
+    } // if
+    else
+      return false;
+  } // CheckSymbol()
+  
+  protected: virtual int GetThisTokenType( string token ) {
+    if ( token == "(" ) {
+      return LEFT_PAREN ;
+    } // if
+    else if ( token == ")" ) {
+      return RIGHT_PAREN ;
+    } // else if 
+    else if ( token == "t" || token == "#t" ) {
+      return T ;
+    } // else if
+    else if ( token == "nil" || token == "#f" ) {
+      return NIL ;
+    } // else if
+    else if ( token == "." ) {
+      return DOT ;
+    } // else if
+    else if ( token == "\'" ) {
+      return QUOTE ;
+    } // else if
+    else if ( IsInt( token ) ) { // 只有純數字的int ex: 123 456
+      return INT ;
+    } // else if 
+    else if ( token.at( 0 ) == '+' || token.at( 0 ) == '-' ) { // +123 -456
+      if ( IsInt( token.substr( 1, token.size() ) ) ) { 
+        return INT ;
+      } // if
+      else return STRING ;
+    } // else if
+    else if ( IsFloat( token ) ) {
+      return FLOAT ;
+    } // else if
+    else if ( CheckSymbol( token ) ) {
+      return SYMBOL ;
+    } // else if
+    else{
+      return STRING ;
+    } // else
+  } // GetThisTokenType()
   
 } 
 g_classCategory ;
@@ -302,16 +350,12 @@ class GetTokenMachine {
     return token ;
   } // DelimiterDeal()
   
-  protected: virtual string CheckDelimiter() {
-    // 型別要不要改成void function名要不要改名為SaveDelimiterToBuffer 或 SaveDelimiter
-    // 不要改成void 名字是OK
+  protected: virtual string SaveDelimiterToBuffer() {
     m_bufferDelimiter = m_nextChar ;
     return "" ; 
-  } // CheckDelimiter()
+  } // SaveDelimiterToBuffer()
 
   protected: virtual string ReadWholeLine() {
-    // 型別要不要改成void
-    // 不要
     while ( m_nextChar != '\n' && ! cin.eof() ) {
       GetChar( m_nextChar );
     }  // while
@@ -343,7 +387,7 @@ class GetTokenMachine {
     else if ( m_nextChar == '\"' ) {
       token = token + string( 1, '\"' ) ;
     } // if
-    else {
+    else { // 沒有特殊意義 ex: \Y \X 這種的
       token = token + string( 1, '\\' ) ;
       token = token + string( 1, m_nextChar ) ;
     } // else
@@ -355,8 +399,7 @@ class GetTokenMachine {
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
         GetChar( m_nextChar );
-        UpdateToken( token ) ; // 如果進到這個function裡的else 那會是啥情況
-                               // 我放在那個function裡面解釋
+        UpdateToken( token ) ; // 進function前已經有一個 \ 了
         GetChar( m_nextChar );  
         continue_choise = true ;            
       } // if 
