@@ -4,14 +4,10 @@
 # include <stdexcept>
 # include <stack>
 # include <queue>
-
 // ***************************************************************************** //
 //                                                                               //
-//      我需要你的debug之眼 我有一個我沒辦法解釋的問題 你搞不好可以處理               //
-//                詳情請看第800行 我把一切都放在那邊了                              //
-//                有個safeCode的問題我沒辦法解釋                                   //
-//                           ps:去你媽的PAL                                       //
-//                                                                               //
+//      我搞定SafeCode了 我好棒 現在再過test2 應該這部分弄完後面就會很快             //
+//      準備開始幹活啦                                                            //
 //                                                                               //
 // ***************************************************************************** //
 using namespace std ;
@@ -33,6 +29,21 @@ class Token {
   public : string m_token_string ;
   public : int m_colnum ;
   public : int m_line ;
+
+
+  public : Token() {
+    m_token_string = "" ;
+    m_colnum = 0 ;
+    m_line = 0 ;
+  } // Token()
+
+  public : Token( string str, int colnum, int line ) {
+
+    m_token_string = str ;
+    m_colnum = colnum ;
+    m_line = line ;
+
+  } // Token()
 } 
 ;
 
@@ -52,6 +63,7 @@ bool HaveWord( char ch ) {
   
   return false ;
 } // HaveWord()
+
 
 
 class TokenClassCategory {
@@ -657,20 +669,21 @@ class Statement {
   protected : TokenClassCategory m_tokenCategorier ;
   protected : bool m_not_end ;
   protected : string m_nextToken ;
-  protected : queue<Token> m_get_token_queue ;
-  protected : Token m_tempToken ;
+
+
 
   protected : Token GetToken() ;
   protected: string ErrorMessage( string type, int line, int column, string token ) ;
   protected : Token GetNextToken( stack<Token> &token_wait_stack ) ;
-  protected : void CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack ) ; 
-  protected : bool CheckTheDOT_AND_S_EXP(  stack<Token>  &token_wait_stack ) ; 
-  protected : bool IsATOM( Token token, stack<Token> &token_wait_stack ) ;
-  protected : bool IsS_EXP( Token token, stack<Token> &token_wait_stack ) ;
+  protected : void CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) ; 
+  protected : bool CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack,
+                                          queue<Token> &token_wait_queue ) ; 
+  protected : bool IsATOM( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) ;
+  protected : bool IsS_EXP( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) ;
   protected : void GetStatement() ;
   protected : void PopStackToLast( stack<Token> &token_stack ) ;
   protected : void PopQueueToLast( queue<Token> &token_queue ) ;
-  protected : void PrintTotalTokenAtQueue() ;
+  protected : void PrintTotalTokenAtQueue( queue<Token> &token_wait_queue ) ;
   public : void PrintAllOfStatement() ;
   public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
 
@@ -681,11 +694,6 @@ class Statement {
     m_nextToken = "" ;
 
   } // Statement()
-
-  protected : void Push( Token token ) {
-    m_get_token_queue.push( token ) ;
-  } // Push() 
-
 
 } 
 ; // Statemant
@@ -719,26 +727,25 @@ Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
 
 } // Statement::GetNextToken()
 
-bool Statement :: CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack ) {
+bool Statement :: CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack, queue<Token> &token_wait_queue ) {
   Token token = GetNextToken( token_wait_stack ) ;
-  m_get_token_queue.push( token ) ;
+  token_wait_queue.push( token ) ;
   if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == DOT ) {
     Token temp_token = GetNextToken( token_wait_stack ) ;
-    if ( IsS_EXP( temp_token, token_wait_stack ) ) {
+    if ( IsS_EXP( temp_token, token_wait_stack, token_wait_queue ) ) {
       return true ;
     } // if
   } // if
 
-  m_get_token_queue.pop() ;
+  token_wait_queue.pop() ;
   token_wait_stack.push( token ) ;
   return false ;
 } // Statement::CheckTheDOT_AND_S_EXP()
 
-void Statement :: CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack ) {
+void Statement :: CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) {
 
   Token token = GetNextToken( token_wait_stack ) ;
-  while ( IsS_EXP( token, token_wait_stack ) ) {
-    m_get_token_queue.push( token ) ;
+  while ( IsS_EXP( token, token_wait_stack, token_wait_queue ) ) {
     token = GetNextToken( token_wait_stack ) ;
   } // while
 
@@ -746,7 +753,7 @@ void Statement :: CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack ) {
 
 } // Statement::CheckTheS_EXP_WHILE()
 
-bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack ) {
+bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) {
 
   int type = m_tokenCategorier.GetThisTokenType( token.m_token_string ) ;
   if ( type == SYMBOL ||
@@ -761,7 +768,7 @@ bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack ) {
     Token nextToken ;
     nextToken = GetNextToken( token_wait_stack ) ;
     if ( m_tokenCategorier.GetThisTokenType( nextToken.m_token_string ) == RIGHT_PAREN ) {
-      m_get_token_queue.push( nextToken ) ;
+      token_wait_queue.push( nextToken ) ;
       return true ;
     } // if
     else {
@@ -790,31 +797,24 @@ void Statement :: PopQueueToLast( queue<Token> &token_queue ) {
 
 } // Statement::PopQueueToLast()
 
-bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack ) {
-  m_tempToken.m_token_string = token.m_token_string ;
-  m_tempToken.m_colnum = token.m_colnum ;
-  m_tempToken.m_line = token.m_line ;
-
-  m_get_token_queue.push( m_tempToken ) ; 
+bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) {
+  Token tempToken = Token( token.m_token_string, token.m_colnum, token.m_line ) ;
+  token_wait_queue.push( tempToken ) ; 
   // 這裡出現SafeCode的問題 我不知道為甚麼會發生 他不該發生這件事情
   // 你有印象老大可能會有那些地方會有safeCode的嗎
      
-  if ( IsATOM( token, token_wait_stack ) ) {
+  if ( IsATOM( token, token_wait_stack, token_wait_queue ) ) {
     return true ;
   } // if
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == LEFT_PAREN ) {
     Token temp_token = GetNextToken( token_wait_stack ) ;
-    if ( IsS_EXP( temp_token, token_wait_stack ) ) {
-      // 從這裡進去之後才會出問題 我不確定跟這個有沒有關係
-      // 我用recursive 第二次進入這個function 然後對我class內的queue直接做push
-      // 我不知道怎麼解釋這部分 一開始以為是怕記憶體溢出所以我又另外在class做一個tempToken
-      // 結果一樣 
-      // by the way 測資1除了這問題以外都對了 
-      CheckTheS_EXP_WHILE( token_wait_stack ) ; 
-      CheckTheDOT_AND_S_EXP( token_wait_stack ) ;
+    if ( IsS_EXP( temp_token, token_wait_stack, token_wait_queue ) ) {
+      // 這部分的queue我還要想一下要怎麼做比較好 或是我可能改成stack 用queue好像會有問題
+      CheckTheS_EXP_WHILE( token_wait_stack, token_wait_queue ) ; 
+      CheckTheDOT_AND_S_EXP( token_wait_stack, token_wait_queue ) ;
       temp_token = GetNextToken( token_wait_stack ) ;
       if ( m_tokenCategorier.GetThisTokenType( temp_token.m_token_string ) == RIGHT_PAREN ) {
-        m_get_token_queue.push( temp_token ) ;
+        token_wait_queue.push( temp_token ) ;
         return true ;
       } // if 
       else {
@@ -828,23 +828,22 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack ) {
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == QUOTE ) {
   } // else if  
 
-  m_get_token_queue.pop() ; 
   token_wait_stack.push( token ) ;    
   return false ;
 
 } // Statement::IsS_EXP()
 
-void Statement :: PrintTotalTokenAtQueue() {
+void Statement :: PrintTotalTokenAtQueue( queue<Token> &token_wait_queue ) {
   bool function = false ;
   queue<Token> functionToken ;
-  for ( ; ! m_get_token_queue.empty() ; ) {
+  for ( ; ! token_wait_queue.empty() ; ) {
 
-    if ( m_tokenCategorier.GetThisTokenType( m_get_token_queue.front().m_token_string ) != LEFT_PAREN ) {
-      if ( m_tokenCategorier.GetThisTokenType( m_get_token_queue.front().m_token_string ) != RIGHT_PAREN ) {
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_queue.front().m_token_string ) != LEFT_PAREN ) {
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_queue.front().m_token_string ) != RIGHT_PAREN ) {
         cout << endl << "> " ;
-        cout << m_tokenCategorier.ChangeToken( m_get_token_queue.front().m_token_string ) ;
+        cout << m_tokenCategorier.ChangeToken( token_wait_queue.front().m_token_string ) ;
         if ( function ) {
-          functionToken.push( m_get_token_queue.front() ) ;
+          functionToken.push( token_wait_queue.front() ) ;
         } // if
       } // if
       else {
@@ -852,7 +851,9 @@ void Statement :: PrintTotalTokenAtQueue() {
           cout << endl << "> " ;
           cout << m_tokenCategorier.ChangeToken( "nil" ) ;
         } // if
-        
+        else if ( function == true && ! functionToken.empty() ) {
+
+        } 
         PopQueueToLast( functionToken ) ;
       } // else
     } // if
@@ -860,7 +861,7 @@ void Statement :: PrintTotalTokenAtQueue() {
       function = true ; 
     } // else
 
-    m_get_token_queue.pop() ;
+    token_wait_queue.pop() ;
   } // for
 
 } // Statement::PrintTotalTokenAtQueue() 
@@ -869,14 +870,14 @@ void Statement :: GetStatement() {
 
   Token token ;
   stack<Token> wait_token_stack ;
+  queue<Token> wait_token_queue ;
   token = GetNextToken( wait_token_stack ) ;
-  if ( IsS_EXP( token,  wait_token_stack ) ) {
-    PrintTotalTokenAtQueue() ; 
+  if ( IsS_EXP( token,  wait_token_stack, wait_token_queue ) ) {
+    PrintTotalTokenAtQueue( wait_token_queue ) ; 
     token.m_token_string = m_tokenCategorier.ChangeToken( token.m_token_string ) ;
   } // if
   else {
-    PopStackToLast( wait_token_stack ) ;
-    PopQueueToLast( m_get_token_queue ) ;
+    PopStackToLast( wait_token_stack ) ; 
     cout << endl << "> " ;
     cout << ErrorMessage( "unexpected token", wait_token_stack.top().m_line, 
                           wait_token_stack.top().m_colnum, wait_token_stack.top().m_token_string ) ;
