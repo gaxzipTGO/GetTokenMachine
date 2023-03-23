@@ -4,10 +4,15 @@
 # include <stdexcept>
 # include <stack>
 # include <queue>
+# include <vector>
+
 // ***************************************************************************** //
 //                                                                               //
-//      我搞定SafeCode了 我好棒 現在再過test2 應該這部分弄完後面就會很快             //
-//      準備開始幹活啦                                                            //
+//      我需要你的debug之眼 我有一個我沒辦法解釋的問題 你搞不好可以處理               //
+//                詳情請看第800行 我把一切都放在那邊了                              //
+//                有個safeCode的問題我沒辦法解釋                                   //
+//                           ps:去你媽的PAL                                       //
+//                                                                               //
 //                                                                               //
 // ***************************************************************************** //
 using namespace std ;
@@ -675,15 +680,19 @@ class Statement {
   protected : Token GetToken() ;
   protected: string ErrorMessage( string type, int line, int column, string token ) ;
   protected : Token GetNextToken( stack<Token> &token_wait_stack ) ;
-  protected : void CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) ; 
+  protected : void CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ; 
   protected : bool CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack,
-                                          queue<Token> &token_wait_queue ) ; 
-  protected : bool IsATOM( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) ;
-  protected : bool IsS_EXP( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) ;
+                                          vector<Token> &token_wait_vector ) ; 
+  protected : bool IsATOM( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ;
+  protected : bool IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ;
   protected : void GetStatement() ;
   protected : void PopStackToLast( stack<Token> &token_stack ) ;
-  protected : void PopQueueToLast( queue<Token> &token_queue ) ;
-  protected : void PrintTotalTokenAtQueue( queue<Token> &token_wait_queue ) ;
+  protected : void PopvectorToLast( vector<Token> &token_queue ) ;
+  protected : void CheckDOTANDPAREN( vector<Token> &token_wait_vector, int level ) ;
+  protected : void PrintWhiteSpaceWithLevel( int level ) ;
+  protected : bool PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level ) ;
+  protected : bool PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level ) ;
+  protected : void PrintFunction( vector<Token> &token_function_vector ) ;
   public : void PrintAllOfStatement() ;
   public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
 
@@ -727,25 +736,26 @@ Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
 
 } // Statement::GetNextToken()
 
-bool Statement :: CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack, queue<Token> &token_wait_queue ) {
+bool Statement :: CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack,
+                                         vector<Token> &token_wait_vector ) {
   Token token = GetNextToken( token_wait_stack ) ;
-  token_wait_queue.push( token ) ;
+  token_wait_vector.push_back( token ) ;
   if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == DOT ) {
     Token temp_token = GetNextToken( token_wait_stack ) ;
-    if ( IsS_EXP( temp_token, token_wait_stack, token_wait_queue ) ) {
+    if ( IsS_EXP( temp_token, token_wait_stack, token_wait_vector ) ) {
       return true ;
     } // if
   } // if
 
-  token_wait_queue.pop() ;
+  token_wait_vector.pop_back() ;
   token_wait_stack.push( token ) ;
   return false ;
 } // Statement::CheckTheDOT_AND_S_EXP()
 
-void Statement :: CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) {
+void Statement :: CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) {
 
   Token token = GetNextToken( token_wait_stack ) ;
-  while ( IsS_EXP( token, token_wait_stack, token_wait_queue ) ) {
+  while ( IsS_EXP( token, token_wait_stack, token_wait_vector ) ) {
     token = GetNextToken( token_wait_stack ) ;
   } // while
 
@@ -753,7 +763,7 @@ void Statement :: CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, queue<Tok
 
 } // Statement::CheckTheS_EXP_WHILE()
 
-bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) {
+bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) {
 
   int type = m_tokenCategorier.GetThisTokenType( token.m_token_string ) ;
   if ( type == SYMBOL ||
@@ -768,7 +778,7 @@ bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack, queue<Tok
     Token nextToken ;
     nextToken = GetNextToken( token_wait_stack ) ;
     if ( m_tokenCategorier.GetThisTokenType( nextToken.m_token_string ) == RIGHT_PAREN ) {
-      token_wait_queue.push( nextToken ) ;
+      token_wait_vector.push_back( nextToken ) ;
       return true ;
     } // if
     else {
@@ -781,6 +791,14 @@ bool Statement :: IsATOM( Token token, stack<Token> &token_wait_stack, queue<Tok
 
 } // Statement::IsATOM()
 
+void Statement :: PrintWhiteSpaceWithLevel( int level ) {
+
+  for ( int i = 0 ; i < level*2 ; i ++ ) {
+    cout << ' ' ;
+  } // for
+
+} // Statement::PrintWhiteSpaceWithLevel()
+
 void Statement :: PopStackToLast( stack<Token> &token_stack ) {
 
   for ( ; token_stack.size() > 1 ; ) {
@@ -789,32 +807,36 @@ void Statement :: PopStackToLast( stack<Token> &token_stack ) {
 
 } // Statement::PopStackToLast()
 
-void Statement :: PopQueueToLast( queue<Token> &token_queue ) {
+void Statement :: PopvectorToLast( vector<Token> &token_vector ) {
 
-  for ( ; token_queue.size() > 0 ; ) {
-    token_queue.pop();
+  for ( ; token_vector.size() > 0 ; ) {
+    token_vector.pop_back();
   } // for
 
-} // Statement::PopQueueToLast()
+} // Statement::PopvectorToLast()
 
-bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, queue<Token> &token_wait_queue ) {
+bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) {
   Token tempToken = Token( token.m_token_string, token.m_colnum, token.m_line ) ;
-  token_wait_queue.push( tempToken ) ; 
+  token_wait_vector.push_back( tempToken ) ; 
   // 這裡出現SafeCode的問題 我不知道為甚麼會發生 他不該發生這件事情
   // 你有印象老大可能會有那些地方會有safeCode的嗎
      
-  if ( IsATOM( token, token_wait_stack, token_wait_queue ) ) {
+  if ( IsATOM( token, token_wait_stack, token_wait_vector ) ) {
     return true ;
   } // if
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == LEFT_PAREN ) {
     Token temp_token = GetNextToken( token_wait_stack ) ;
-    if ( IsS_EXP( temp_token, token_wait_stack, token_wait_queue ) ) {
-      // 這部分的queue我還要想一下要怎麼做比較好 或是我可能改成stack 用queue好像會有問題
-      CheckTheS_EXP_WHILE( token_wait_stack, token_wait_queue ) ; 
-      CheckTheDOT_AND_S_EXP( token_wait_stack, token_wait_queue ) ;
+    if ( IsS_EXP( temp_token, token_wait_stack, token_wait_vector ) ) {
+      // 從這裡進去之後才會出問題 我不確定跟這個有沒有關係
+      // 我用recursive 第二次進入這個function 然後對我class內的vector直接做push
+      // 我不知道怎麼解釋這部分 一開始以為是怕記憶體溢出所以我又另外在class做一個tempToken
+      // 結果一樣 
+      // by the way 測資1除了這問題以外都對了 
+      CheckTheS_EXP_WHILE( token_wait_stack, token_wait_vector ) ; 
+      CheckTheDOT_AND_S_EXP( token_wait_stack, token_wait_vector ) ;
       temp_token = GetNextToken( token_wait_stack ) ;
       if ( m_tokenCategorier.GetThisTokenType( temp_token.m_token_string ) == RIGHT_PAREN ) {
-        token_wait_queue.push( temp_token ) ;
+        token_wait_vector.push_back( temp_token ) ;
         return true ;
       } // if 
       else {
@@ -828,60 +850,113 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, queue<To
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == QUOTE ) {
   } // else if  
 
+  token_wait_vector.pop_back() ;
   token_wait_stack.push( token ) ;    
   return false ;
 
 } // Statement::IsS_EXP()
 
-void Statement :: PrintTotalTokenAtQueue( queue<Token> &token_wait_queue ) {
-  bool function = false ;
-  queue<Token> functionToken ;
-  for ( ; ! token_wait_queue.empty() ; ) {
+void Statement :: CheckDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
 
-    if ( m_tokenCategorier.GetThisTokenType( token_wait_queue.front().m_token_string ) != LEFT_PAREN ) {
-      if ( m_tokenCategorier.GetThisTokenType( token_wait_queue.front().m_token_string ) != RIGHT_PAREN ) {
-        cout << endl << "> " ;
-        cout << m_tokenCategorier.ChangeToken( token_wait_queue.front().m_token_string ) ;
-        if ( function ) {
-          functionToken.push( token_wait_queue.front() ) ;
+if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == DOT ) {
+        if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
+             LEFT_PAREN ) {
+          PrintTotalTokenInPAREN( token_wait_vector, level ) ; 
         } // if
+        else if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
+                  NIL ) {  
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
+        } // else if  
       } // if
-      else {
-        if ( function == true && functionToken.empty() ) {
-          cout << endl << "> " ;
-          cout << m_tokenCategorier.ChangeToken( "nil" ) ;
-        } // if
-        else if ( function == true && ! functionToken.empty() ) {
 
-        } 
-        PopQueueToLast( functionToken ) ;
-      } // else
+} // Statement::CheckDOTANDPAREN()
+
+bool Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level ) {
+
+  token_wait_vector.erase( token_wait_vector.begin() ) ;
+  token_wait_vector.erase( token_wait_vector.begin() ) ;
+  for ( ; m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != RIGHT_PAREN ; ) {
+    if ( token_wait_vector.size() != 0 ) {
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
+        PrintTotalTokenAtvector( token_wait_vector, level ) ;
+      } // if
+      else { 
+
+        CheckDOTANDPAREN( token_wait_vector, level ) ; 
+        cout << m_tokenCategorier.ChangeToken( token_wait_vector.front().m_token_string ) << endl ;
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        CheckDOTANDPAREN( token_wait_vector, level ) ; 
+        PrintWhiteSpaceWithLevel( level ) ;
+
+      } // else 
     } // if
-    else {
-      function = true ; 
-    } // else
-
-    token_wait_queue.pop() ;
   } // for
 
-} // Statement::PrintTotalTokenAtQueue() 
+  token_wait_vector.erase( token_wait_vector.begin() ) ;
+  return false ;
+
+} // Statement::PrintTotalTokenInPAREN()
+
+bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level ) {
+  if ( token_wait_vector.size() != 0 ) {
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      if ( token_wait_vector.front().m_token_string == "exit" ) {
+        if (  m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
+          cout << endl ;
+          return false ;
+        } // if
+      } // if
+      else if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
+                RIGHT_PAREN ) {   
+        cout << "( " ;
+      }  // if
+      else {
+        cout << m_tokenCategorier.ChangeToken( "nil" ) << endl ;  
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+      } // else
+
+
+      return PrintTotalTokenAtvector( token_wait_vector, level+1 ) ;
+    } // if
+    else { 
+      CheckDOTANDPAREN( token_wait_vector, level ) ; 
+      cout << m_tokenCategorier.ChangeToken( token_wait_vector.front().m_token_string ) << endl ;
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == RIGHT_PAREN ) {
+        level -= 1 ; 
+      } // if 
+
+      PrintWhiteSpaceWithLevel( level ) ;
+      return PrintTotalTokenAtvector( token_wait_vector, level ) ;
+    } // else 
+  } // if
+
+  return true ;
+} // Statement::PrintTotalTokenAtvector() 
 
 void Statement :: GetStatement() {
 
   Token token ;
   stack<Token> wait_token_stack ;
-  queue<Token> wait_token_queue ;
+  vector<Token> wait_token_vector ;
   token = GetNextToken( wait_token_stack ) ;
-  if ( IsS_EXP( token,  wait_token_stack, wait_token_queue ) ) {
-    PrintTotalTokenAtQueue( wait_token_queue ) ; 
-    token.m_token_string = m_tokenCategorier.ChangeToken( token.m_token_string ) ;
+  cout << endl << "> " ;
+  if ( m_not_end ) {
+    if ( IsS_EXP( token,  wait_token_stack, wait_token_vector ) ) {
+      m_not_end = PrintTotalTokenAtvector( wait_token_vector, 0 ) ; 
+    } // if
+    else {
+      PopStackToLast( wait_token_stack ) ; 
+      cout << ErrorMessage( "unexpected token", wait_token_stack.top().m_line, 
+                            wait_token_stack.top().m_colnum,
+                            wait_token_stack.top().m_token_string ) << endl ;
+    } // else
   } // if
   else {
-    PopStackToLast( wait_token_stack ) ; 
-    cout << endl << "> " ;
-    cout << ErrorMessage( "unexpected token", wait_token_stack.top().m_line, 
-                          wait_token_stack.top().m_colnum, wait_token_stack.top().m_token_string ) ;
-  } // else
+    cout << token.m_token_string << endl ;
+  } // else 
 
   m_pl_tokenGetter.ReadReload() ;
 
@@ -893,13 +968,6 @@ void Statement :: PrintAllOfStatement() {
   bool normal_end = false ;
   do {
     GetStatement() ;
-    if ( statement.compare( "(exit)" ) != 0 ) {
-      cout << statement << endl  ;
-    } // if
-    else {
-      m_not_end = true ;
-      normal_end = true ;
-    } // else
   } while ( m_not_end ) ;   // this while is we can loading all token of page
   cout << "Thanks for using OurScheme!" ;  
 
