@@ -6,15 +6,30 @@
 # include <queue>
 # include <vector>
 
-// ***************************************************************************** //
-//                                                                               //
-//      我需要你的debug之眼 我有一個我沒辦法解釋的問題 你搞不好可以處理               //
-//                詳情請看第800行 我把一切都放在那邊了                              //
-//                有個safeCode的問題我沒辦法解釋                                   //
-//                           ps:去你媽的PAL                                       //
-//                                                                               //
-//                                                                               //
-// ***************************************************************************** //
+//    // ***************************************************************************** //
+//    //                                                                               //
+//    //               !!!!!!!!!!!!!!!!!!警急任務!!!!!!!!!!!!!!!!!!!!!                  //
+//    //                          WARRING WARRING WARRING                              //
+//    //                                                                               //
+//    //                            找出runtimeError!!!                                //
+//    //                測資1 2 都好了 把runtimeError找到就有機會破他                    //
+//    //                                                                               //
+//    //                                                                               //
+//    //                                                                               //
+//    //                                                                               //
+//    // ***************************************************************************** //
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                                        ///////
+//                         /////////////////////////////////////               
+                                    
 using namespace std ;
 
 enum G_Category {
@@ -576,6 +591,10 @@ g_getTokenMachine ;
 
 bool GetTokenMachine :: GetToken( Token & token ) {
   try {
+    if ( cin.eof() ) {
+      return false ;
+    } // if
+
     if ( IsDelimiter( m_nextChar ) ) {
       token.m_colnum = m_column ;
       token.m_line = m_line ;
@@ -688,10 +707,10 @@ class Statement {
   protected : void GetStatement() ;
   protected : void PopStackToLast( stack<Token> &token_stack ) ;
   protected : void PopvectorToLast( vector<Token> &token_queue ) ;
-  protected : void CheckDOTANDPAREN( vector<Token> &token_wait_vector, int level ) ;
+  protected : bool IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) ;
   protected : void PrintWhiteSpaceWithLevel( int level ) ;
-  protected : bool PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level ) ;
-  protected : bool PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level ) ;
+  protected : bool PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool new_line ) ;
+  protected : bool PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level, bool new_line ) ;
   protected : void PrintFunction( vector<Token> &token_function_vector ) ;
   public : void PrintAllOfStatement() ;
   public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
@@ -856,81 +875,86 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
 
 } // Statement::IsS_EXP()
 
-void Statement :: CheckDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
-
-if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == DOT ) {
-        if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
-             LEFT_PAREN ) {
-          PrintTotalTokenInPAREN( token_wait_vector, level ) ; 
-        } // if
-        else if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
-                  NIL ) {  
-          token_wait_vector.erase( token_wait_vector.begin() ) ;
-          token_wait_vector.erase( token_wait_vector.begin() ) ;
-        } // else if  
-      } // if
-
-} // Statement::CheckDOTANDPAREN()
-
-bool Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level ) {
-
-  token_wait_vector.erase( token_wait_vector.begin() ) ;
-  token_wait_vector.erase( token_wait_vector.begin() ) ;
-  for ( ; m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != RIGHT_PAREN ; ) {
-    if ( token_wait_vector.size() != 0 ) {
-      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
-        PrintTotalTokenAtvector( token_wait_vector, level ) ;
-      } // if
-      else { 
-
-        CheckDOTANDPAREN( token_wait_vector, level ) ; 
-        cout << m_tokenCategorier.ChangeToken( token_wait_vector.front().m_token_string ) << endl ;
+bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
+  if ( token_wait_vector.size() ) {
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == DOT ) {
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
+           LEFT_PAREN ) {
         token_wait_vector.erase( token_wait_vector.begin() ) ;
-        CheckDOTANDPAREN( token_wait_vector, level ) ; 
-        PrintWhiteSpaceWithLevel( level ) ;
-
-      } // else 
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        return true ;
+      } // if
+      else if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
+                NIL ) {  
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        return true ;
+      } // else if  
     } // if
-  } // for
+  } // if
 
-  token_wait_vector.erase( token_wait_vector.begin() ) ;
+  return false ;
+
+} // Statement::IsDOTANDPAREN()
+
+bool Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool new_line ) {
+
   return false ;
 
 } // Statement::PrintTotalTokenInPAREN()
 
-bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level ) {
+bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level, bool new_line ) {
+
   if ( token_wait_vector.size() != 0 ) {
-    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
-      token_wait_vector.erase( token_wait_vector.begin() ) ;
-      if ( token_wait_vector.front().m_token_string == "exit" ) {
-        if (  m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
-          cout << endl ;
-          return false ;
-        } // if
-      } // if
-      else if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
-                RIGHT_PAREN ) {   
-        cout << "( " ;
-      }  // if
-      else {
-        cout << m_tokenCategorier.ChangeToken( "nil" ) << endl ;  
-        token_wait_vector.erase( token_wait_vector.begin() ) ;
-      } // else
-
-
-      return PrintTotalTokenAtvector( token_wait_vector, level+1 ) ;
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == RIGHT_PAREN ) {
+      return true ;
     } // if
-    else { 
-      CheckDOTANDPAREN( token_wait_vector, level ) ; 
-      cout << m_tokenCategorier.ChangeToken( token_wait_vector.front().m_token_string ) << endl ;
-      token_wait_vector.erase( token_wait_vector.begin() ) ;
-      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == RIGHT_PAREN ) {
-        level -= 1 ; 
-      } // if 
+    else {
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
+        if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
+          cout << "nil" << endl ;
+          return true ;
+        } // if
+        else if ( token_wait_vector[1].m_token_string == "exit" ) {
+          if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[2].m_token_string ) == 
+               RIGHT_PAREN ) {
+            cout << endl ;
+            return false ;
+          } // if
+        } // else if
 
-      PrintWhiteSpaceWithLevel( level ) ;
-      return PrintTotalTokenAtvector( token_wait_vector, level ) ;
-    } // else 
+        cout << "( " ;
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        for ( ; m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
+              RIGHT_PAREN ; ) {
+          PrintTotalTokenAtvector( token_wait_vector, level+1, new_line ) ;
+          if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) !=
+               LEFT_PAREN  ) {
+            new_line = true ;
+          } // if
+        } // for
+
+        PrintWhiteSpaceWithLevel( level ) ;
+        cout << ")" << endl ;
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+      } // if
+      else {
+        IsDOTANDPAREN( token_wait_vector, level ) ;
+        if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
+             RIGHT_PAREN ) {
+          if ( new_line ) {
+            PrintWhiteSpaceWithLevel( level ) ;
+          } // if
+
+          cout << m_tokenCategorier.ChangeToken( token_wait_vector.front().m_token_string ) << endl ;
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
+          PrintTotalTokenAtvector( token_wait_vector, level, true ) ;
+        } // if
+        else {
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
+        } // else
+      } // else
+    } // else
   } // if
 
   return true ;
@@ -945,7 +969,7 @@ void Statement :: GetStatement() {
   cout << endl << "> " ;
   if ( m_not_end ) {
     if ( IsS_EXP( token,  wait_token_stack, wait_token_vector ) ) {
-      m_not_end = PrintTotalTokenAtvector( wait_token_vector, 0 ) ; 
+      m_not_end = PrintTotalTokenAtvector( wait_token_vector, 0, false ) ; 
     } // if
     else {
       PopStackToLast( wait_token_stack ) ; 
