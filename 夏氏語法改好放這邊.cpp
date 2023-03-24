@@ -397,7 +397,11 @@ class GetTokenMachine {
   } // IsDelimiter()
 
   protected: virtual bool GetChar( char &ch ) {
+    if ( cin.eof() ) {
+      return false ;
+    } // if
 
+    // 就只是讀一個char,讀到EOF
     if ( cin.get( ch ) ) {
       m_column += 1 ;
       if ( ch == '\n' ) {
@@ -441,16 +445,12 @@ class GetTokenMachine {
     return token ;
   } // DelimiterDeal()
   
-  protected: virtual string CheckDelimiter() {
-    // 型別要不要改成void function名要不要改名為SaveDelimiterToBuffer 或 SaveDelimiter
-    // 不要改成void 名字是OK
+  protected: virtual string SaveDelimiterToBuffer() {
     m_bufferDelimiter = m_nextChar ;
     return "" ; 
-  } // CheckDelimiter()
+  } // SaveDelimiterToBuffer()
 
   public: virtual string ReadWholeLine() {
-    // 型別要不要改成void
-    // 不要
     while ( m_nextChar != '\n' && ! cin.eof() ) {
       GetChar( m_nextChar );
     }  // while
@@ -460,9 +460,7 @@ class GetTokenMachine {
 
   protected: virtual void UpdateToken( string &token ) {
   /*
-    如果進到這個function 他會先看有沒有特別的東西 ex \n \t \0 這類的
-    如果有的話 就要讓他變成它的功能 如果沒有特別的 就進else代表他的東西要保留
-    \Y \X那些的 要保留下來
+    重點:有特殊意義的存功能.沒有的就照存
   */
     if ( m_nextChar == 'n' ) {
       token = token + string( 1, '\n' ) ;
@@ -494,18 +492,13 @@ class GetTokenMachine {
     do {
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
-        not_end = GetChar( m_nextChar );
-        UpdateToken( token ) ; // 如果進到這個function裡的else 那會是啥情況
-                               // 我放在那個function裡面解釋
+        not_end = GetChar( m_nextChar );  // GetChar()就只是讀一個char
+        UpdateToken( token ) ; // 有特殊意義的存功能,沒有的就照存
         not_end = GetChar( m_nextChar );  
-        continue_choise = true ;            
+        continue_choise = true ;
       } // if 
 
-      if ( ! continue_choise ) { // 所以是continue_choise == false才會進這if?
-        /*
-        對 我跟你說他的命名由來:c o n t i n u e , 但老大不給用所以我只能這樣 沒其他原因
-        你知道為什麼我要這樣空格嗎 因為GetToken沒寫好 如果打那個東西在註解裡也會被夏式語法擋住
-        */
+      if ( ! continue_choise ) { // continue_choise == false才會進這if
         token = token + string( 1, m_nextChar ) ;
         not_end = GetChar( m_nextChar );
       } // if
@@ -531,6 +524,10 @@ class GetTokenMachine {
             m_nextChar != '\t' && m_nextChar != ' '  ) {
       sub_token_back = sub_token_back + string( 1, m_nextChar ) ;
     } // while
+
+    if ( IsDelimiter( m_nextChar ) ) {
+      cin.putback( m_nextChar ) ;
+    } // if
 
     return sub_token_front + string( 1, '.' ) + sub_token_back ;
 
@@ -591,9 +588,10 @@ g_getTokenMachine ;
 
 bool GetTokenMachine :: GetToken( Token & token ) {
   try {
+
     if ( cin.eof() ) {
       return false ;
-    } // if
+    } // if 
 
     if ( IsDelimiter( m_nextChar ) ) {
       token.m_colnum = m_column ;
@@ -606,7 +604,7 @@ bool GetTokenMachine :: GetToken( Token & token ) {
       return true ;
     } // if
 
-    if ( ! IsDelimiter( m_nextChar ) && 
+    if ( ! cin.eof() && ! IsDelimiter( m_nextChar ) && 
          m_nextChar != '\n' && m_nextChar != '\t' && 
          m_nextChar != ' ' && m_nextChar != '\0' ) {
       token.m_colnum = m_column ;
@@ -615,7 +613,7 @@ bool GetTokenMachine :: GetToken( Token & token ) {
     } // if
 
     bool get_info = false ;
-    while ( GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
+    while ( ! cin.eof() && GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
             m_nextChar != '\n' && m_nextChar != '\t' && m_nextChar != ' '  ) {
       if ( ! get_info ) {
         token.m_colnum = m_column ;
@@ -654,18 +652,19 @@ bool GetTokenMachine :: GetToken( Token & token ) {
 
 bool GetTokenMachine :: GetNextToken( Token &Out_token ) {
   /*
+  結論:可以得到一個token,但要自行決定return哪個
   the function is we can get the token but we need to chiose Out_token != "" 
   */
   try {
     m_token.m_token_string = "" ;
     if ( m_notend ) {
-      do {                
+      do {
         m_notend = GetToken( m_token ) ;
         if ( m_notend == false ) {
           Out_token.m_token_string = ErrorMessage( "no more input" ) ; 
           return false ;
         } // if        
-      } while ( m_token.m_token_string.length() == 0 ) ;
+      } while ( m_token.m_token_string.length() == 0 && m_token.m_token_string == "" ) ;
       Out_token = m_token ;
       return true ;
       
@@ -727,7 +726,7 @@ class Statement {
 ; // Statemant
 
 Token Statement :: GetToken() {
-
+  
   Token token ;
   m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; 
   return token ;
@@ -742,7 +741,8 @@ string Statement :: ErrorMessage( string type, int line, int column, string toke
 
 Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
 /*
-  從輸入的文件或stack裡面拿一個token出來 如果stack有東西就先用stack的 這樣才不會打架
+  結論:得到一個token,無論是從哪裡拿的
+  從輸入的文件或stack裡面拿一個token出來 如果stack有東西就先用stack的 ( 這樣才不會打架 )
 */
   if ( ! token_wait_stack.empty() ) {
     Token token = token_wait_stack.top() ;
@@ -889,7 +889,13 @@ bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
         token_wait_vector.erase( token_wait_vector.begin() ) ;
         token_wait_vector.erase( token_wait_vector.begin() ) ;
         return true ;
-      } // else if  
+      } // else if
+      else if ( m_tokenCategorier.ChangeToken( token_wait_vector[1].m_token_string ) == 
+                "nil" ) {  
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        return true ;
+      } // else if    
     } // if
   } // if
 
@@ -912,7 +918,13 @@ bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int
     else {
       if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
         if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
+          if ( new_line ) {
+            PrintWhiteSpaceWithLevel( level ) ;
+          } // if
+
           cout << "nil" << endl ;
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
           return true ;
         } // if
         else if ( token_wait_vector[1].m_token_string == "exit" ) {
