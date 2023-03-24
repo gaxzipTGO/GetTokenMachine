@@ -397,7 +397,13 @@ class GetTokenMachine {
   } // IsDelimiter()
 
   protected: virtual bool GetChar( char &ch ) {
-    // 就只是讀一個char，讀到EOF
+    /*
+    讀一個char 讀到EOF ( false代表後面沒東西了 )
+    */
+   if ( cin.eof() ) {
+      return false ;
+    } // if
+
     if ( cin.get( ch ) ) {
       m_column += 1 ;
       if ( ch == '\n' ) {
@@ -456,7 +462,7 @@ class GetTokenMachine {
 
   protected: virtual void UpdateToken( string &token ) {
   /*
-    重點：有特殊意義的存功能。沒有的就照存
+    重點 : 有特殊意義的存功能 沒有的就照存
   */
     if ( m_nextChar == 'n' ) {
       token = token + string( 1, '\n' ) ;
@@ -485,11 +491,11 @@ class GetTokenMachine {
   protected: virtual string ReadString() {
     string token = "" ;
     bool not_end ;
-    do {
+    do { 
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
-        not_end = GetChar( m_nextChar );  // GetChar()就只是讀一個char
-        UpdateToken( token ) ; //有特殊意義的存功能。沒有的就照存
+        not_end = GetChar( m_nextChar );  // 讀一個char (false代表後面沒東西了)
+        UpdateToken( token ) ; //有特殊意義的存功能 沒有的就照存
         not_end = GetChar( m_nextChar );  
         continue_choise = true ;
       } // if 
@@ -500,6 +506,8 @@ class GetTokenMachine {
       } // if
 
     } while ( m_nextChar != '\"' && m_nextChar != '\n' && not_end ) ; // do-while()
+    // 讀到 換行 或 一個string結束 或 EOF
+
     if ( m_nextChar == '\n' || ! not_end ) {
       return ErrorMessage( "no closing quote", m_line, m_lastColumn ) ;
     } // if
@@ -519,7 +527,11 @@ class GetTokenMachine {
     while ( GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && m_nextChar != '\n' &&
             m_nextChar != '\t' && m_nextChar != ' '  ) {
       sub_token_back = sub_token_back + string( 1, m_nextChar ) ;
-    } // while
+    } // while  把.後面的數字讀完
+
+    if ( IsDelimiter( m_nextChar ) ) {
+      cin.putback( m_nextChar ) ;
+    } // if
 
     return sub_token_front + string( 1, '.' ) + sub_token_back ;
 
@@ -538,10 +550,10 @@ class GetTokenMachine {
       return ReadString() ;
     } // else if
     else if ( ch == '.' ) {
-      return ReadDot( token ) ;
+      return ReadDot( token ) ; // 把.後面的數字讀完
     } // else if
     else if ( ch == '(' || ch == ')' ) {
-      return ReadPAREN( ch ) ;
+      return ReadPAREN( ch ) ; //return 這個括號回去
     } // else if
 
     return string( 1, ch ) ;
@@ -584,7 +596,7 @@ bool GetTokenMachine :: GetToken( Token & token ) {
       return false ;
     } // if
 
-    if ( IsDelimiter( m_nextChar ) ) {
+    if ( IsDelimiter( m_nextChar ) ) { // 是Delimiter的話就去處理他
       token.m_colnum = m_column ;
       token.m_line = m_line ;
       token.m_token_string = DealDelimiter( token.m_token_string, m_nextChar ) ;
@@ -595,16 +607,16 @@ bool GetTokenMachine :: GetToken( Token & token ) {
       return true ;
     } // if
 
-    if ( ! IsDelimiter( m_nextChar ) && 
+    if ( ! cin.eof() && ! IsDelimiter( m_nextChar ) && 
          m_nextChar != '\n' && m_nextChar != '\t' && 
-         m_nextChar != ' ' && m_nextChar != '\0' ) {
+         m_nextChar != ' ' && m_nextChar != '\0' ) { // 非Delimeter 就是純字元
       token.m_colnum = m_column ;
       token.m_line = m_line ;
       token.m_token_string = token.m_token_string + string( 1, m_nextChar ) ;
     } // if
 
     bool get_info = false ;
-    while ( GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
+    while ( ! cin.eof() && GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
             m_nextChar != '\n' && m_nextChar != '\t' && m_nextChar != ' '  ) {
       if ( ! get_info ) {
         token.m_colnum = m_column ;
@@ -613,7 +625,7 @@ bool GetTokenMachine :: GetToken( Token & token ) {
       } // if 
 
       token.m_token_string = token.m_token_string + string( 1, m_nextChar ) ;
-    } // while 
+    } // while 把純字元的部分全部讀完
 
     if ( m_nextChar == '.' ) {
       if ( ! get_info ) {
@@ -643,19 +655,19 @@ bool GetTokenMachine :: GetToken( Token & token ) {
 
 bool GetTokenMachine :: GetNextToken( Token &Out_token ) {
   /*
-  結論：可以得到一個token，但要自行決定return哪個
+  結論 : 可以得到一個token，但要自行決定return哪個
   the function is we can get the token but we need to chiose Out_token != "" 
   */
   try {
     m_token.m_token_string = "" ;
     if ( m_notend ) {
       do {
-        m_notend = GetToken( m_token ) ;
+        m_notend = GetToken( m_token ) ; // 得到一個token ( false表示 eof 或 讀完才eof )
         if ( m_notend == false ) {
           Out_token.m_token_string = ErrorMessage( "no more input" ) ; 
           return false ;
         } // if        
-      } while ( m_token.m_token_string.length() == 0 ) ;
+      } while ( m_token.m_token_string.length() == 0 && m_token.m_token_string == "" ) ;
       Out_token = m_token ;
       return true ;
       
@@ -719,7 +731,7 @@ class Statement {
 Token Statement :: GetToken() {
   
   Token token ;
-  m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; 
+  m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; // 得到一個token ( false表示eof token是空的 )
   return token ;
 
 } // Statement::GetToken()
@@ -732,8 +744,8 @@ string Statement :: ErrorMessage( string type, int line, int column, string toke
 
 Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
 /*
-  結論：得到一個token，無論是從哪裡拿的
-  從輸入的文件或stack裡面拿一個token出來 （如果stack有東西就先用stack的 這樣才不會打架）
+  結論 : 得到一個token，無論是從哪裡拿的
+  從輸入的文件或stack裡面拿一個token出來 ( 如果stack有東西就先用stack的 這樣才不會打架 )
 */
   if ( ! token_wait_stack.empty() ) {
     Token token = token_wait_stack.top() ;
@@ -741,7 +753,7 @@ Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
     return token ;
   } // if
   else {
-    return GetToken() ;
+    return GetToken() ; // 如果eof 會是空的
   } // else
 
 } // Statement::GetNextToken()
@@ -880,6 +892,12 @@ bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
         token_wait_vector.erase( token_wait_vector.begin() ) ;
         token_wait_vector.erase( token_wait_vector.begin() ) ;
         return true ;
+      } // else if
+      else if ( m_tokenCategorier.ChangeToken( token_wait_vector[1].m_token_string ) == 
+                "nil" ) {  
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        return true ;
       } // else if  
     } // if
   } // if
@@ -903,7 +921,13 @@ bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int
     else {
       if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
         if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
+          if ( new_line ) {
+            PrintWhiteSpaceWithLevel( level ) ;
+          } // if
+
           cout << "nil" << endl ;
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
+          token_wait_vector.erase( token_wait_vector.begin() ) ;
           return true ;
         } // if
         else if ( token_wait_vector[1].m_token_string == "exit" ) {
@@ -949,7 +973,7 @@ bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int
   } // if
 
   return true ;
-} // Statement::PrintTotalTokenAtvector() 
+} // Statement::PrintTotalTokenAtvector()  
 
 void Statement :: GetStatement() {
 
