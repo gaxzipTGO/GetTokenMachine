@@ -463,7 +463,7 @@ class GetTokenMachine {
   } // SaveDelimiterToBuffer()
 
   public: virtual string ReadWholeLine() {
-    while ( m_nextChar != '\n' && ! cin.eof() ) {
+    while ( m_nextChar != '\n' && m_nextChar != EOF ) {
       GetChar( m_nextChar );
     }  // while
 
@@ -655,7 +655,6 @@ bool GetTokenMachine :: GetToken( Token & token ) {
     } // if
 
     if ( m_nextChar == EOF ) {
-      m_nextChar = '\0' ;
       return false ;
     } // if 
 
@@ -939,10 +938,6 @@ bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
 
 void Statement :: PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) {
 
-  if ( new_line ) {
-    PrintWhiteSpaceWithLevel( level ) ;
-    new_line = false ;
-  } // if
 
   if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
     token_wait_vector.erase( token_wait_vector.begin() ) ;
@@ -959,7 +954,6 @@ void Statement :: PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int 
     } // if
   } // else if
   else {
-    new_line = false ;
     token_wait_vector.erase( token_wait_vector.begin() ) ;
     if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) ==
          LEFT_PAREN ) {
@@ -978,8 +972,10 @@ void Statement :: PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int 
         PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
       } // if
       else {
-        PrintTotalTokenAtvector( token_wait_vector, level, new_line ) ;
+        if ( ! IsDOTANDPAREN( token_wait_vector, level ) )
+          PrintTotalTokenAtvector( token_wait_vector, level, new_line ) ;
       } // else
+
     } // for
 
     token_wait_vector.erase( token_wait_vector.begin() ) ;
@@ -989,11 +985,13 @@ void Statement :: PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int 
 
 void Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) {
 
-  if ( new_line ) {
-    PrintWhiteSpaceWithLevel( level ) ;
-  } // if
 
   if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
+    if ( new_line ) {
+      PrintWhiteSpaceWithLevel( level ) ;
+      new_line = false ;
+    } // if
+
     cout << "nil" << endl ;
     new_line = true ;
     token_wait_vector.erase( token_wait_vector.begin() ) ;
@@ -1009,7 +1007,12 @@ void Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int 
       cout << endl ;
     } // if
   } // else if
+
   else {
+    if ( new_line ) {
+      PrintWhiteSpaceWithLevel( level ) ;
+    } // if
+
     cout << "( " ;
     new_line = false ;
     token_wait_vector.erase( token_wait_vector.begin() ) ;
@@ -1030,7 +1033,8 @@ void Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int 
         PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
       } // if
       else {
-        PrintTotalTokenAtvector( token_wait_vector, level, new_line ) ;
+        if ( ! IsDOTANDPAREN( token_wait_vector, level ) )
+          PrintTotalTokenAtvector( token_wait_vector, level, new_line ) ;
       } // else
     } // for
 
@@ -1141,11 +1145,12 @@ void Statement :: PrintAllOfStatement() {
 int main() {
 
   cout << "Welcome to OurScheme!" << endl ;
-  char testNum[10] ;
-  cin.getline( testNum, sizeof( testNum ) )  ;
+  int testNum ;
+  cin >> testNum ;
   GetTokenMachine getToken ;
   TokenClassCategory tokenclass ;
   Statement statement( getToken, tokenclass ) ;
   statement.PrintAllOfStatement() ;
-  
+
+
 } // main()
