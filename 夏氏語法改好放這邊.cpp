@@ -12,7 +12,7 @@
 //    //                          WARRING WARRING WARRING                              //
 //    //                                                                               //
 //    //                            找出runtimeError!!!                                //
-//    //                測資1 2 都好了 把runtimeError找到就有機會破他                    //
+//    //                               卡隱藏囉卡隱藏                                   //
 //    //                                                                               //
 //    //                                                                               //
 //    //                                                                               //
@@ -186,11 +186,15 @@ class TokenClassCategory {
   } // IsFloat()
 
   protected: virtual string AddZero_Back( string token ) {
-    for ( int i = token.size() ; i < 3 ; i ++ ) {
-      token = token + string( 1, '0' ) ;
-    } // for
+    
+    if ( IsInt( token ) || token == "" ) {
+      for ( int i = token.size() ; i < 3 ; i ++ ) { 
+        token = token + string( 1, '0' ) ; 
+      } // for
+    } // if
 
     return token ;
+
   } // AddZero_Back()
 
   protected: virtual string RoundingUP( string token ) {
@@ -283,15 +287,17 @@ class TokenClassCategory {
     if ( token.compare( "t" ) == 0 ) {
       return "#t" ;
     } // if
-    else if ( token.compare( "()" ) == 0 ) {
-      return "nil" ;
-    } // else if 
     else if ( token.compare( "#f" ) == 0 ) {
       return "nil" ;
     } // else if 
-    else if ( token.at( 0 ) == '\"' ) {
+    else if ( GetThisTokenType( token ) == STRING || GetThisTokenType( token ) == SYMBOL ||
+              GetThisTokenType( token ) == LEFT_PAREN || GetThisTokenType( token ) == LEFT_PAREN ||
+              GetThisTokenType( token ) == DOT ) {
       return token ;
-    } // else if 
+    } // else if
+    else if ( token.compare( "\'" ) == 0 ) {
+      return "quote" ;
+    } // else if
 
     token = DealWithDot_Front( token ) ;  // 在小數點前補0
     token = DealWithDot_Back( token ) ;  // 在小數點後補0 四捨五入 有字母不會做改變
@@ -343,11 +349,10 @@ class TokenClassCategory {
     else if ( CheckSymbol( token ) ) {
       return SYMBOL ;
     } // else if
-
     else {
       return STRING ;
     } // else
-  } // GetThisTokenType()
+  } // GetThisTokenType() 
    
 } 
 g_classCategory ;
@@ -397,11 +402,13 @@ class GetTokenMachine {
   } // IsDelimiter()
 
   protected: virtual bool GetChar( char &ch ) {
-    if ( cin.eof() ) {
+    /*
+    讀一個char 讀到EOF ( false代表後面沒東西了 )
+    */
+    if ( ch == EOF ) {
       return false ;
     } // if
 
-    // 就只是讀一個char,讀到EOF
     if ( cin.get( ch ) ) {
       m_column += 1 ;
       if ( ch == '\n' ) {
@@ -414,16 +421,21 @@ class GetTokenMachine {
         } // if
       } // if
 
+      if ( ch != ' ' && ch != '\t' && ch != '\n' ) {
+        m_reload_line = false ;
+      } // if
+
       return true ;
     } // if
     else {
+      ch = EOF ;
       return false ;
     } // else
 
   } // GetChar()
 
   protected: string ErrorMessage( string type, int line, int column ) {
-    while ( GetChar( m_nextChar ) && m_nextChar != '\n' ) {
+    while ( m_nextChar != '\n' && m_nextChar != EOF ) {
       ;
     } // while
 
@@ -432,7 +444,7 @@ class GetTokenMachine {
   } // ErrorMessage()
 
   protected: string ErrorMessage( string type ) {
-    while ( GetChar( m_nextChar ) && m_nextChar != '\n' ) {
+    while ( m_nextChar != '\n' && m_nextChar != EOF  ) {
       ;
     } // while
 
@@ -460,7 +472,7 @@ class GetTokenMachine {
 
   protected: virtual void UpdateToken( string &token ) {
   /*
-    重點:有特殊意義的存功能.沒有的就照存
+    重點 : 有特殊意義的存功能 沒有的就照存
   */
     if ( m_nextChar == 'n' ) {
       token = token + string( 1, '\n' ) ;
@@ -489,11 +501,11 @@ class GetTokenMachine {
   protected: virtual string ReadString() {
     string token = "" ;
     bool not_end ;
-    do {
+    do { 
       bool continue_choise  = false ;
       if ( m_nextChar == '\\' ) {
-        not_end = GetChar( m_nextChar );  // GetChar()就只是讀一個char
-        UpdateToken( token ) ; // 有特殊意義的存功能,沒有的就照存
+        not_end = GetChar( m_nextChar );  // 讀一個char (false代表後面沒東西了)
+        UpdateToken( token ) ; // 有特殊意義的存功能 沒有的就照存
         not_end = GetChar( m_nextChar );  
         continue_choise = true ;
       } // if 
@@ -504,7 +516,12 @@ class GetTokenMachine {
       } // if
 
     } while ( m_nextChar != '\"' && m_nextChar != '\n' && not_end ) ; // do-while()
+    // 讀到 換行 或 一個string結束 或 EOF
+    
+
     if ( m_nextChar == '\n' || ! not_end ) {
+      if ( m_nextChar == '\n' )
+        return ErrorMessage( "no closing quote", m_line-1, m_lastColumn ) ;
       return ErrorMessage( "no closing quote", m_line, m_lastColumn ) ;
     } // if
 
@@ -523,10 +540,10 @@ class GetTokenMachine {
     while ( GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && m_nextChar != '\n' &&
             m_nextChar != '\t' && m_nextChar != ' '  ) {
       sub_token_back = sub_token_back + string( 1, m_nextChar ) ;
-    } // while
+    } // while  把.後面的數字讀完
 
-    if ( IsDelimiter( m_nextChar ) ) {
-      cin.putback( m_nextChar ) ;
+    if ( m_nextChar == '.' ) {
+      sub_token_back = ReadDot( sub_token_back ) ;
     } // if
 
     return sub_token_front + string( 1, '.' ) + sub_token_back ;
@@ -543,15 +560,19 @@ class GetTokenMachine {
       return ReadWholeLine() ;
     } // if
     else if ( ch == '\"' ) {
-      return ReadString() ;
+      string str = ReadString() ;
+      GetChar( m_nextChar ) ;
+      return str ;
     } // else if
     else if ( ch == '.' ) {
-      return ReadDot( token ) ;
+      return ReadDot( token ) ; // 把.後面的數字讀完
     } // else if
     else if ( ch == '(' || ch == ')' ) {
-      return ReadPAREN( ch ) ;
+      GetChar( m_nextChar ) ;
+      return ReadPAREN( ch ) ; // return 這個括號回去
     } // else if
 
+    GetChar( m_nextChar ) ;
     return string( 1, ch ) ;
   } // DealDelimiter()
   
@@ -588,32 +609,27 @@ g_getTokenMachine ;
 
 bool GetTokenMachine :: GetToken( Token & token ) {
   try {
-
-    if ( cin.eof() ) {
+    if ( m_nextChar == EOF ) {
       return false ;
-    } // if 
+    } // if
 
-    if ( IsDelimiter( m_nextChar ) ) {
+    if ( IsDelimiter( m_nextChar ) ) { // 是Delimiter的話就去處理他
       token.m_colnum = m_column ;
       token.m_line = m_line ;
       token.m_token_string = DealDelimiter( token.m_token_string, m_nextChar ) ;
-      if ( ! GetChar( m_nextChar ) ) {
-        m_nextChar = '\0' ;
-      } // if
-
       return true ;
     } // if
 
-    if ( ! cin.eof() && ! IsDelimiter( m_nextChar ) && 
+    if ( m_nextChar != EOF && ! IsDelimiter( m_nextChar ) && 
          m_nextChar != '\n' && m_nextChar != '\t' && 
-         m_nextChar != ' ' && m_nextChar != '\0' ) {
+         m_nextChar != ' ' && m_nextChar != '\0' ) { // 非Delimeter 就是純字元
       token.m_colnum = m_column ;
       token.m_line = m_line ;
       token.m_token_string = token.m_token_string + string( 1, m_nextChar ) ;
     } // if
 
     bool get_info = false ;
-    while ( ! cin.eof() && GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
+    while ( m_nextChar != EOF && GetChar( m_nextChar ) && ! IsDelimiter( m_nextChar ) && 
             m_nextChar != '\n' && m_nextChar != '\t' && m_nextChar != ' '  ) {
       if ( ! get_info ) {
         token.m_colnum = m_column ;
@@ -622,7 +638,7 @@ bool GetTokenMachine :: GetToken( Token & token ) {
       } // if 
 
       token.m_token_string = token.m_token_string + string( 1, m_nextChar ) ;
-    } // while 
+    } // while 把純字元的部分全部讀完
 
     if ( m_nextChar == '.' ) {
       if ( ! get_info ) {
@@ -638,7 +654,7 @@ bool GetTokenMachine :: GetToken( Token & token ) {
       return true ;
     } // if
 
-    if ( cin.eof() ) {
+    if ( m_nextChar == EOF ) {
       m_nextChar = '\0' ;
       return false ;
     } // if 
@@ -659,7 +675,7 @@ bool GetTokenMachine :: GetNextToken( Token &Out_token ) {
     m_token.m_token_string = "" ;
     if ( m_notend ) {
       do {
-        m_notend = GetToken( m_token ) ;
+        m_notend = GetToken( m_token ) ; // 得到一個token ( false表示 eof 或 讀完才eof )
         if ( m_notend == false ) {
           Out_token.m_token_string = ErrorMessage( "no more input" ) ; 
           return false ;
@@ -708,8 +724,11 @@ class Statement {
   protected : void PopvectorToLast( vector<Token> &token_queue ) ;
   protected : bool IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) ;
   protected : void PrintWhiteSpaceWithLevel( int level ) ;
-  protected : bool PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool new_line ) ;
-  protected : bool PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level, bool new_line ) ;
+  protected : void PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) ;
+  protected : void PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) ;
+  protected : void PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level, bool &new_line ) ;
+  protected : void PrintTotalTokenAtvectorFirst( vector<Token> &token_wait_vector, 
+                                                 int level, bool new_line ) ;
   protected : void PrintFunction( vector<Token> &token_function_vector ) ;
   public : void PrintAllOfStatement() ;
   public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
@@ -728,7 +747,7 @@ class Statement {
 Token Statement :: GetToken() {
   
   Token token ;
-  m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; 
+  m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; // 得到一個token ( false表示eof token是空的 )
   return token ;
 
 } // Statement::GetToken()
@@ -741,8 +760,8 @@ string Statement :: ErrorMessage( string type, int line, int column, string toke
 
 Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
 /*
-  結論:得到一個token,無論是從哪裡拿的
-  從輸入的文件或stack裡面拿一個token出來 如果stack有東西就先用stack的 ( 這樣才不會打架 )
+  結論 : 得到一個token,無論是從哪裡拿的
+  從輸入的文件或stack裡面拿一個token出來 ( 如果stack有東西就先用stack的 這樣才不會打架 )
 */
   if ( ! token_wait_stack.empty() ) {
     Token token = token_wait_stack.top() ;
@@ -750,7 +769,7 @@ Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
     return token ;
   } // if
   else {
-    return GetToken() ;
+    return GetToken() ; // 如果eof 會是空的
   } // else
 
 } // Statement::GetNextToken()
@@ -867,6 +886,21 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
     } // else
   } // else if 
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == QUOTE ) {
+    Token temp_token = GetNextToken( token_wait_stack ) ;
+    vector<Token>::iterator index = token_wait_vector.end() -1 ; // 這是quote所在位置
+    Token putToken = Token( "(", 9999, 9999 ) ;
+    token_wait_vector.insert( index, 1, putToken ) ;
+    if ( IsS_EXP( temp_token, token_wait_stack, token_wait_vector ) ) {
+      index = token_wait_vector.end() ;
+      Token putToken2 = Token( ")", 9999, 9999 ) ;
+      token_wait_vector.insert( index, 1, putToken2 ) ;
+      return true ;
+    } // if
+    else {
+      token_wait_vector.erase( index ) ;
+      return false ;
+    } // else
+
   } // else if  
 
   token_wait_vector.pop_back() ;
@@ -881,8 +915,8 @@ bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
       if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
            LEFT_PAREN ) {
         token_wait_vector.erase( token_wait_vector.begin() ) ;
-        token_wait_vector.erase( token_wait_vector.begin() ) ;
-        return true ;
+        bool new_line = true ;
+        PrintTotalTokenNoPAREN( token_wait_vector, level, new_line ) ;
       } // if
       else if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == 
                 NIL ) {  
@@ -895,7 +929,7 @@ bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
         token_wait_vector.erase( token_wait_vector.begin() ) ;
         token_wait_vector.erase( token_wait_vector.begin() ) ;
         return true ;
-      } // else if    
+      } // else if  
     } // if
   } // if
 
@@ -903,55 +937,121 @@ bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
 
 } // Statement::IsDOTANDPAREN()
 
-bool Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool new_line ) {
+void Statement :: PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) {
 
-  return false ;
+  if ( new_line ) {
+    PrintWhiteSpaceWithLevel( level ) ;
+    new_line = false ;
+  } // if
 
+  if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+  } // if
+  else if ( token_wait_vector[1].m_token_string == "exit" ) {
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[2].m_token_string ) == 
+         RIGHT_PAREN ) {
+      cout << endl ;
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      m_not_end = false ;
+    } // if
+  } // else if
+  else {
+    new_line = false ;
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) ==
+         LEFT_PAREN ) {
+      PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
+    } // if
+
+    for ( ; m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
+          RIGHT_PAREN ; ) {
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) ==
+           LEFT_PAREN  ) {
+        if ( new_line ) {
+          PrintWhiteSpaceWithLevel( level ) ;
+          new_line = false ;
+        } // if
+
+        PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
+      } // if
+      else {
+        PrintTotalTokenAtvector( token_wait_vector, level, new_line ) ;
+      } // else
+    } // for
+
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+  } // else 
+
+} // Statement::PrintTotalTokenNoPAREN()
+
+void Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) {
+
+  if ( new_line ) {
+    PrintWhiteSpaceWithLevel( level ) ;
+  } // if
+
+  if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
+    cout << "nil" << endl ;
+    new_line = true ;
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+  } // if
+  else if ( token_wait_vector[1].m_token_string == "exit" ) {
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[2].m_token_string ) == 
+         RIGHT_PAREN ) {
+      m_not_end = false ;
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      token_wait_vector.erase( token_wait_vector.begin() ) ;
+      cout << endl ;
+    } // if
+  } // else if
+  else {
+    cout << "( " ;
+    new_line = false ;
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+    if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) ==
+         LEFT_PAREN ) {
+      PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
+    } // if
+
+    for ( ; m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
+          RIGHT_PAREN ; ) {
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) ==
+           LEFT_PAREN  ) {
+        if ( new_line ) {
+          PrintWhiteSpaceWithLevel( level ) ;
+          new_line = false ;
+        } // if
+
+        PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
+      } // if
+      else {
+        PrintTotalTokenAtvector( token_wait_vector, level, new_line ) ;
+      } // else
+    } // for
+
+    PrintWhiteSpaceWithLevel( level-1 ) ;
+    cout << ")" << endl ;
+    new_line = true ;
+    token_wait_vector.erase( token_wait_vector.begin() ) ;
+  } // else
 } // Statement::PrintTotalTokenInPAREN()
 
-bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level, bool new_line ) {
+void Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level, bool &new_line ) {
 
+  IsDOTANDPAREN( token_wait_vector, level ) ;
   if ( token_wait_vector.size() != 0 ) {
     if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == RIGHT_PAREN ) {
-      return true ;
     } // if
     else {
       if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
-        if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
-          if ( new_line ) {
-            PrintWhiteSpaceWithLevel( level ) ;
-          } // if
-
-          cout << "nil" << endl ;
-          token_wait_vector.erase( token_wait_vector.begin() ) ;
-          token_wait_vector.erase( token_wait_vector.begin() ) ;
-          return true ;
-        } // if
-        else if ( token_wait_vector[1].m_token_string == "exit" ) {
-          if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[2].m_token_string ) == 
-               RIGHT_PAREN ) {
-            cout << endl ;
-            return false ;
-          } // if
-        } // else if
-
-        cout << "( " ;
-        token_wait_vector.erase( token_wait_vector.begin() ) ;
-        for ( ; m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
-              RIGHT_PAREN ; ) {
-          PrintTotalTokenAtvector( token_wait_vector, level+1, new_line ) ;
-          if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) !=
-               LEFT_PAREN  ) {
-            new_line = true ;
-          } // if
-        } // for
-
-        PrintWhiteSpaceWithLevel( level ) ;
-        cout << ")" << endl ;
-        token_wait_vector.erase( token_wait_vector.begin() ) ;
+        PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
       } // if
       else {
-        IsDOTANDPAREN( token_wait_vector, level ) ;
         if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
              RIGHT_PAREN ) {
           if ( new_line ) {
@@ -959,8 +1059,8 @@ bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int
           } // if
 
           cout << m_tokenCategorier.ChangeToken( token_wait_vector.front().m_token_string ) << endl ;
-          token_wait_vector.erase( token_wait_vector.begin() ) ;
-          PrintTotalTokenAtvector( token_wait_vector, level, true ) ;
+          new_line = true ;
+          token_wait_vector.erase( token_wait_vector.begin() ) ; 
         } // if
         else {
           token_wait_vector.erase( token_wait_vector.begin() ) ;
@@ -969,19 +1069,48 @@ bool Statement :: PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int
     } // else
   } // if
 
-  return true ;
-} // Statement::PrintTotalTokenAtvector() 
+} // Statement::PrintTotalTokenAtvector()  
+
+void Statement::PrintTotalTokenAtvectorFirst( vector<Token> &token_wait_vector, int level, bool new_line ) {
+  for ( ; token_wait_vector.size() != 0 ; ) {
+    IsDOTANDPAREN( token_wait_vector, level ) ;
+    if ( token_wait_vector.size() != 0 ) {
+      if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == RIGHT_PAREN ) {
+      } // if
+      else {
+        if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) == LEFT_PAREN ) {
+          PrintTotalTokenInPAREN( token_wait_vector, level+1, new_line ) ;
+        } // if
+        else {
+          if ( m_tokenCategorier.GetThisTokenType( token_wait_vector.front().m_token_string ) != 
+               RIGHT_PAREN ) {
+            if ( new_line ) {
+              PrintWhiteSpaceWithLevel( level ) ;
+            } // if
+
+            cout << m_tokenCategorier.ChangeToken( token_wait_vector.front().m_token_string ) << endl ;
+            token_wait_vector.erase( token_wait_vector.begin() ) ; 
+          } // if
+          else {
+            token_wait_vector.erase( token_wait_vector.begin() ) ;
+          } // else
+        } // else
+      } // else
+    } // if
+  } // for
+} // Statement::PrintTotalTokenAtvectorFirst()  
 
 void Statement :: GetStatement() {
 
   Token token ;
   stack<Token> wait_token_stack ;
   vector<Token> wait_token_vector ;
-  token = GetNextToken( wait_token_stack ) ;
   cout << endl << "> " ;
+  token = GetNextToken( wait_token_stack ) ;
   if ( m_not_end ) {
     if ( IsS_EXP( token,  wait_token_stack, wait_token_vector ) ) {
-      m_not_end = PrintTotalTokenAtvector( wait_token_vector, 0, false ) ; 
+      bool new_line = false ;
+      PrintTotalTokenAtvector( wait_token_vector, 0, new_line ) ; 
     } // if
     else {
       PopStackToLast( wait_token_stack ) ; 
