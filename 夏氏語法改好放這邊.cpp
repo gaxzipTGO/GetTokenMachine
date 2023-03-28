@@ -69,6 +69,27 @@ class Token {
 } 
 ;
 
+class TreeNode {
+  public:
+    Token data ;
+    TreeNode* left ;
+    TreeNode* right ;
+
+    TreeNode( Token d ) {
+      data = d ;
+      left = nullptr ;
+      right = nullptr ;
+    } // TreeNode()
+
+    void AddLeft( Token t ) {
+      left = new TreeNode( t ) ;
+    } // AddLeft()
+
+    void AddRight( Token t ) {
+      right = new TreeNode( t ) ;
+    } // AddRight()
+};
+
 string To_String( int num ) {
 
   char buffer[16];
