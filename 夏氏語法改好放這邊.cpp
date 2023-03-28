@@ -5,6 +5,8 @@
 # include <stack>
 # include <queue>
 # include <vector>
+# include <stdio.h>
+# include <string.h>
 
 //    // ***************************************************************************** //
 //    //                                                                               //
@@ -368,6 +370,8 @@ class GetTokenMachine {
   protected: int m_column ;
   protected: int m_lastColumn ;
   protected: bool m_reload_line ;
+  protected: virtual bool GetChar( char &ch ) ; 
+  protected: virtual bool GetChar( char &ch, bool skipEOF ) ; 
   protected: bool GetToken( Token & token ) ;
   public: bool GetNextToken( Token &Out_token ) ;
 
@@ -401,54 +405,22 @@ class GetTokenMachine {
     return false ;
   } // IsDelimiter()
 
-  protected: virtual bool GetChar( char &ch ) {
-    /*
-    讀一個char 讀到EOF ( false代表後面沒東西了 )
-    */
-    if ( ch == EOF ) {
-      return false ;
-    } // if
-
-    if ( cin.get( ch ) ) {
-      m_column += 1 ;
-      if ( ch == '\n' ) {
-        m_line += 1 ;
-        m_lastColumn = m_column ;
-        m_column = 0 ;
-        if ( m_reload_line == true ) {
-          m_line = 1 ;
-          m_reload_line = false ;
-        } // if
-      } // if
-
-      if ( ch != ' ' && ch != '\t' && ch != '\n' ) {
-        m_reload_line = false ;
-      } // if
-
-      return true ;
-    } // if
-    else {
-      ch = EOF ;
-      return false ;
-    } // else
-
-  } // GetChar()
-
-  protected: string ErrorMessage( string type, int line, int column ) {
+  protected: void ErrorMessage( string type, int line, int column ) {
     while ( m_nextChar != '\n' && m_nextChar != EOF ) {
-      ;
+      cin.get( m_nextChar ) ;
     } // while
 
-    return "ERROR (" + type + ") : END-OF-LINE encountered at Line "+ To_String( line ) 
-    + " Column " + To_String( column ) ;
+    m_line = 1 ;
+    m_column = 0 ;
+    m_reload_line = false ;
+    cout << "ERROR (" + type + ") : END-OF-LINE encountered at Line "+ To_String( line ) + 
+            " Column " + To_String( column ) << endl ;
+    throw invalid_argument( "String error" ) ;
   } // ErrorMessage()
 
-  protected: string ErrorMessage( string type ) {
-    while ( m_nextChar != '\n' && m_nextChar != EOF  ) {
-      ;
-    } // while
-
-    return "ERROR (" + type + ") : END-OF-FILE encountered" ;
+  protected: void ErrorMessage( string type ) {
+    cout << "ERROR (" + type + ") : END-OF-FILE encountered" << endl ;
+    throw invalid_argument( "EOF error" ) ;
   } // ErrorMessage()
 
   protected: virtual string DelimiterDeal( string token ) {
@@ -464,7 +436,7 @@ class GetTokenMachine {
 
   public: virtual string ReadWholeLine() {
     while ( m_nextChar != '\n' && m_nextChar != EOF ) {
-      GetChar( m_nextChar );
+      GetChar( m_nextChar, true );
     }  // while
 
     return "" ;
@@ -521,8 +493,8 @@ class GetTokenMachine {
 
     if ( m_nextChar == '\n' || ! not_end ) {
       if ( m_nextChar == '\n' )
-        return ErrorMessage( "no closing quote", m_line-1, m_lastColumn ) ;
-      return ErrorMessage( "no closing quote", m_line, m_lastColumn ) ;
+        ErrorMessage( "no closing quote", m_line-1, m_lastColumn ) ;
+      ErrorMessage( "no closing quote", m_line, m_lastColumn ) ;
     } // if
 
     token = token + string( 1, m_nextChar ) ;
@@ -557,7 +529,26 @@ class GetTokenMachine {
   protected: virtual string DealDelimiter( string token, char ch ) {
 
     if ( ch == ';' ) {
-      return ReadWholeLine() ;
+      while ( m_nextChar != EOF && m_nextChar != '\n' ) {
+        cin.get( m_nextChar ) ;
+        m_column += 1 ;
+        if ( m_nextChar == '\n' ) {
+          m_line += 1 ;
+          m_column = 0 ;
+        } // if
+      } // while
+
+      if ( m_nextChar == EOF ) {
+        ErrorMessage( "no more input" ) ;
+      } // if
+
+      if ( m_reload_line ) {
+        m_column = 0 ;
+        m_line = 1 ;
+        m_reload_line = false ;
+      } // if
+
+      return "" ;
     } // if
     else if ( ch == '\"' ) {
       string str = ReadString() ;
@@ -568,7 +559,7 @@ class GetTokenMachine {
       return ReadDot( token ) ; // 把.後面的數字讀完
     } // else if
     else if ( ch == '(' || ch == ')' ) {
-      GetChar( m_nextChar ) ;
+      GetChar( m_nextChar, true ) ;
       return ReadPAREN( ch ) ; // return 這個括號回去
     } // else if
 
@@ -589,10 +580,17 @@ class GetTokenMachine {
     
   } // IsEnterChar()
   
-  public: void Reload() {
+  public: void ReloadError() {
 
-    m_reload_line = true ;
-    m_column = 1 ;
+    while ( m_nextChar != '\n' && m_nextChar != EOF ) {
+
+      cin.get( m_nextChar ) ;
+
+    } // while 
+
+    m_column = 0 ;
+    m_line = 1 ;
+    m_reload_line = false ;
 
   } // Reload() 
 
@@ -610,6 +608,7 @@ g_getTokenMachine ;
 bool GetTokenMachine :: GetToken( Token & token ) {
   try {
     if ( m_nextChar == EOF ) {
+      ErrorMessage( "no more input" ) ;
       return false ;
     } // if
 
@@ -676,7 +675,6 @@ bool GetTokenMachine :: GetNextToken( Token &Out_token ) {
       do {
         m_notend = GetToken( m_token ) ; // 得到一個token ( false表示 eof 或 讀完才eof )
         if ( m_notend == false ) {
-          Out_token.m_token_string = ErrorMessage( "no more input" ) ; 
           return false ;
         } // if        
       } while ( m_token.m_token_string.length() == 0 && m_token.m_token_string == "" ) ;
@@ -689,17 +687,81 @@ bool GetTokenMachine :: GetNextToken( Token &Out_token ) {
     
   } // try
   catch ( exception &e ) {
-    cout << e.what() << endl  ;
-    Out_token.m_token_string = "" ;
-    if ( !cin.eof() ) {
-      return ( GetNextToken( Out_token ) ) ;
-    } // if
-    else {
-      return false ;
-    } // else
+    throw invalid_argument( e.what() ) ;  
   } // catch
   
 } // GetTokenMachine::GetNextToken()
+
+bool GetTokenMachine::GetChar( char &ch ) {
+  /*
+  讀一個char 讀到EOF ( false代表後面沒東西了 )
+  */
+  if ( ch == EOF ) {
+    ErrorMessage( "no more input" ) ;
+    return false ;
+  } // if
+
+  if ( cin.get( ch ) ) {
+    m_column += 1 ;
+    if ( ch == '\n' ) {
+      m_line += 1 ;
+      m_lastColumn = m_column ;
+      m_column = 0 ;
+      if ( m_reload_line == true ) {
+        m_line = 1 ;
+        m_reload_line = false ;
+      } // if
+    } // if
+
+    if ( ch != ' ' && ch != '\t' && ch != '\n' ) {
+      m_reload_line = false ;
+    } // if
+
+    return true ;
+  } // if
+  else {
+    ch = EOF ;
+    ErrorMessage( "no more input" ) ;
+    return false ;
+  } // else
+
+} // GetTokenMachine::GetChar()
+
+bool GetTokenMachine::GetChar( char &ch, bool skipEOF ) {
+  /*
+  讀一個char 讀到EOF ( false代表後面沒東西了 )
+  */
+  if ( ch == EOF ) {
+    ErrorMessage( "no more input" ) ;
+    return false ;
+  } // if
+
+  if ( cin.get( ch ) ) {
+    m_column += 1 ;
+    if ( ch == '\n' ) {
+      m_line += 1 ;
+      m_lastColumn = m_column ;
+      m_column = 0 ;
+      if ( m_reload_line == true ) {
+        m_line = 1 ;
+        m_reload_line = false ;
+      } // if
+    } // if
+
+    if ( ch != ' ' && ch != '\t' && ch != '\n' ) {
+      m_reload_line = false ;
+    } // if
+
+    return true ;
+  } // if
+  else {
+    ch = EOF ;
+    if ( ! skipEOF )
+      ErrorMessage( "no more input" ) ;
+    return false ;
+  } // else
+
+} // GetTokenMachine::GetChar()
 
 class Statement {
 
@@ -711,8 +773,8 @@ class Statement {
 
 
   protected : Token GetToken() ;
-  protected: string ErrorMessage( string type, int line, int column, string token ) ;
   protected : Token GetNextToken( stack<Token> &token_wait_stack ) ;
+  protected : void ErrorMessage( string type, int line, int column, string token ) ;
   protected : void CheckTheS_EXP_WHILE( stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ; 
   protected : bool CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack,
                                           vector<Token> &token_wait_vector ) ; 
@@ -751,11 +813,15 @@ Token Statement :: GetToken() {
 
 } // Statement::GetToken()
 
-string Statement :: ErrorMessage( string type, int line, int column, string token ) {
-  m_pl_tokenGetter.ReadWholeLine() ;
-  return "ERROR (" + type + ") : atom or '(' expected when token at Line "
-         + To_String( line ) + " Column " + To_String( column ) + " is >>" + token + "<<" ;
+void Statement :: ErrorMessage( string type, int line, int column, string token ) {
+  cout << "ERROR (unexpected token) : " + type + " expected when token at Line "
+          + To_String( line ) + " Column " + To_String( column ) + " is >>" + token + "<<" << endl ;
+  
+  m_pl_tokenGetter.ReloadError() ;
+  throw invalid_argument( "Token Error" ) ;
 } // Statement::ErrorMessage()
+
+
 
 Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
 /*
@@ -782,6 +848,9 @@ bool Statement :: CheckTheDOT_AND_S_EXP( stack<Token>  &token_wait_stack,
     if ( IsS_EXP( temp_token, token_wait_stack, token_wait_vector ) ) {
       return true ;
     } // if
+    else {
+      ErrorMessage( "atom or '('", temp_token.m_line, temp_token.m_colnum, temp_token.m_token_string ) ;
+    } // else
   } // if
 
   token_wait_vector.pop_back() ;
@@ -877,6 +946,7 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
         return true ;
       } // if 
       else {
+        ErrorMessage( "')'", temp_token.m_line, temp_token.m_colnum, temp_token.m_token_string ) ;
         token_wait_stack.push( temp_token ) ;
       } // else
     } // if
@@ -943,7 +1013,7 @@ void Statement :: PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int 
     token_wait_vector.erase( token_wait_vector.begin() ) ;
     token_wait_vector.erase( token_wait_vector.begin() ) ;
   } // if
-  else if ( token_wait_vector[1].m_token_string == "exit" ) {
+  else if ( token_wait_vector[1].m_token_string == "exit" && level == 1 ) {
     if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[2].m_token_string ) == 
          RIGHT_PAREN ) {
       cout << endl ;
@@ -988,7 +1058,7 @@ void Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int 
 
   if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[1].m_token_string ) == RIGHT_PAREN ) {
     if ( new_line ) {
-      PrintWhiteSpaceWithLevel( level ) ;
+      PrintWhiteSpaceWithLevel( level-1 ) ;
       new_line = false ;
     } // if
 
@@ -997,7 +1067,7 @@ void Statement :: PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int 
     token_wait_vector.erase( token_wait_vector.begin() ) ;
     token_wait_vector.erase( token_wait_vector.begin() ) ;
   } // if
-  else if ( token_wait_vector[1].m_token_string == "exit" ) {
+  else if ( token_wait_vector[1].m_token_string == "exit" && level == 1 ) {
     if ( m_tokenCategorier.GetThisTokenType( token_wait_vector[2].m_token_string ) == 
          RIGHT_PAREN ) {
       m_not_end = false ;
@@ -1109,44 +1179,55 @@ void Statement :: GetStatement() {
   Token token ;
   stack<Token> wait_token_stack ;
   vector<Token> wait_token_vector ;
-  cout << endl << "> " ;
-  token = GetNextToken( wait_token_stack ) ;
-  if ( m_not_end ) {
-    if ( IsS_EXP( token,  wait_token_stack, wait_token_vector ) ) {
-      bool new_line = false ;
-      PrintTotalTokenAtvector( wait_token_vector, 0, new_line ) ; 
+  try {
+    cout << endl << "> " ;
+    token = GetNextToken( wait_token_stack ) ;
+    if ( m_not_end ) {
+      if ( IsS_EXP( token,  wait_token_stack, wait_token_vector ) ) {
+        bool new_line = false ;
+        PrintTotalTokenAtvector( wait_token_vector, 0, new_line ) ; 
+      } // if
+      else {
+        PopStackToLast( wait_token_stack ) ; 
+        ErrorMessage( "atom or '('", wait_token_stack.top().m_line, 
+                      wait_token_stack.top().m_colnum,
+                      wait_token_stack.top().m_token_string ) ;
+      } // else
     } // if
     else {
-      PopStackToLast( wait_token_stack ) ; 
-      cout << ErrorMessage( "unexpected token", wait_token_stack.top().m_line, 
-                            wait_token_stack.top().m_colnum,
-                            wait_token_stack.top().m_token_string ) << endl ;
-    } // else
-  } // if
-  else {
-    cout << token.m_token_string << endl ;
-  } // else 
+      cout << token.m_token_string << endl ;
+    } // else 
 
-  m_pl_tokenGetter.ReadReload() ;
-
+    m_pl_tokenGetter.ReadReload() ;
+  } // try
+  catch( exception &e ) {
+    if ( strcmp( e.what(), "EOF error" ) == 0 ) {
+      throw invalid_argument( e.what() ) ;
+    } // if
+  } // catch
 
 } // Statement::GetStatement() 
 
 void Statement :: PrintAllOfStatement() {
-  string statement = "" ;
-  bool normal_end = false ;
-  do {
-    GetStatement() ;
-  } while ( m_not_end ) ;   // this while is we can loading all token of page
-  cout << "Thanks for using OurScheme!" ;  
+  try {
+    string statement = "" ;
+    bool normal_end = false ;
+    do {
+      GetStatement() ;
+    } while ( m_not_end ) ;   // this while is we can loading all token of page
+    cout << "Thanks for using OurScheme!" ;  
+  } // try
+  catch( exception &e ) {
+    cout << "Thanks for using OurScheme!" ;
+  } // catch
 
 } // Statement::PrintAllOfStatement()
 
 int main() {
 
   cout << "Welcome to OurScheme!" << endl ;
-  int testNum ;
-  cin >> testNum ;
+  char testNum[10] ;
+  cin.getline( testNum, 10 ) ;
   GetTokenMachine getToken ;
   TokenClassCategory tokenclass ;
   Statement statement( getToken, tokenclass ) ;
