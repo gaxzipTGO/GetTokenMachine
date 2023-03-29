@@ -1042,6 +1042,9 @@ void Statement :: CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_v
       now_TreePtr->AddLeft( tempNode ) ;
       wait_token_vector.erase( wait_token_vector.begin() ) ;
       CreateLisp( now_TreePtr->m_left, wait_token_vector, false ) ;
+      if ( wait_token_vector.size() != 0 ) {
+        CreateLisp( now_TreePtr, wait_token_vector, false ) ;
+      } // if 如果往下的都結束了 回到這邊 要確定有沒有東西要放在右邊
     } // 可以直接加
     else {
       TreeNode* tempNode = new TreeNode() ;
