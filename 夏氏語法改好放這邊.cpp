@@ -44,26 +44,30 @@ enum G_Category {
   NIL = 1234,
   T = 5432,
   QUOTE = 6543,
-  SYMBOL = 3228
+  SYMBOL = 3228,
+  TOKEN = 5556 ,
+  LISP = 7788
 };
 
 class Token {
   public : string m_token_string ;
   public : int m_colnum ;
   public : int m_line ;
-
+  public : int m_type ;
 
   public : Token() {
     m_token_string = "" ;
     m_colnum = 0 ;
     m_line = 0 ;
+    m_type = 0 ;
   } // Token()
 
-  public : Token( string str, int colnum, int line ) {
+  public : Token( string str, int colnum, int line, int type ) {
 
     m_token_string = str ;
     m_colnum = colnum ;
     m_line = line ;
+    m_type = type ;
 
   } // Token()
 } 
@@ -71,24 +75,38 @@ class Token {
 
 class TreeNode {
   public:
-    Token data ;
-    TreeNode* left ;
-    TreeNode* right ;
+  Token* m_left_token ;
+  TreeNode* m_left ;
+  TreeNode* m_right ;
+  int m_type ;
+  bool m_left_ok ;
 
-    TreeNode( Token d ) {
-      data = d ;
-      left = nullptr ;
-      right = nullptr ;
-    } // TreeNode()
 
-    void AddLeft( Token t ) {
-      left = new TreeNode( t ) ;
-    } // AddLeft()
+  TreeNode() {
+    m_type = 0 ;
+    m_left = NULL ;
+    m_right = NULL ;
+    m_left_token = NULL ;
+    m_left_ok = true ;
+  } // TreeNode()
 
-    void AddRight( Token t ) {
-      right = new TreeNode( t ) ;
-    } // AddRight()
-};
+  void AddLeft( Token* token ) {
+    m_left_token = token ;
+    m_left_ok = false ;
+    m_type = TOKEN ;
+  } // AddLeft()
+
+  void AddLeft( TreeNode* t ) {
+    m_left = t ;
+    m_left_ok = false ;
+    m_type = LISP ;
+  } // AddLeft()
+
+  void AddRight( TreeNode* t ) {
+    m_right = t ;
+  } // AddRight()
+}
+;
 
 string To_String( int num ) {
 
@@ -613,7 +631,7 @@ class GetTokenMachine {
     m_line = 1 ;
     m_reload_line = false ;
 
-  } // Reload() 
+  } // ReloadError() 
 
   public: void ReadReload() {
 
@@ -622,6 +640,19 @@ class GetTokenMachine {
     m_column = 1 ;
     
   } // ReadReload()
+
+  public: void Reload() {
+    if ( m_nextChar == '\n' ) {
+      m_column = 0 ;
+      m_reload_line = false ;
+    } // if
+    else {
+      m_column = 1 ;
+      m_reload_line = true ;
+    } // else
+
+    m_line = 1 ;
+  } // Reload()
 
 } 
 g_getTokenMachine ;
@@ -790,7 +821,7 @@ class Statement {
   protected : TokenClassCategory m_tokenCategorier ;
   protected : bool m_not_end ;
   protected : string m_nextToken ;
-
+  protected : TreeNode* m_nowTreePtr ;
 
 
   protected : Token GetToken() ;
@@ -812,6 +843,7 @@ class Statement {
   protected : void PrintTotalTokenAtvectorFirst( vector<Token> &token_wait_vector, 
                                                  int level, bool new_line ) ;
   protected : void PrintFunction( vector<Token> &token_function_vector ) ;
+  protected : void CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_vector, bool skip_paren ) ;
   public : void PrintAllOfStatement() ;
   public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
 
@@ -820,7 +852,7 @@ class Statement {
     m_pl_tokenGetter = token_get ;
     m_tokenCategorier = token_category ;
     m_nextToken = "" ;
-
+    m_nowTreePtr = NULL ;
   } // Statement()
 
 } 
@@ -830,6 +862,7 @@ Token Statement :: GetToken() {
   
   Token token ;
   m_not_end = m_pl_tokenGetter.GetNextToken( token ) ; // 得到一個token ( false表示eof token是空的 )
+  token.m_type = m_tokenCategorier.GetThisTokenType( token.m_token_string ) ;
   return token ;
 
 } // Statement::GetToken()
@@ -943,7 +976,7 @@ void Statement :: PopvectorToLast( vector<Token> &token_vector ) {
 } // Statement::PopvectorToLast()
 
 bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) {
-  Token tempToken = Token( token.m_token_string, token.m_colnum, token.m_line ) ;
+  Token tempToken = Token( token.m_token_string, token.m_colnum, token.m_line, token.m_type ) ;
   token_wait_vector.push_back( tempToken ) ; 
   // 這裡出現SafeCode的問題 我不知道為甚麼會發生 他不該發生這件事情
   // 你有印象老大可能會有那些地方會有safeCode的嗎
@@ -978,11 +1011,11 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == QUOTE ) {
     Token temp_token = GetNextToken( token_wait_stack ) ;
     vector<Token>::iterator index = token_wait_vector.end() -1 ; // 這是quote所在位置
-    Token putToken = Token( "(", 9999, 9999 ) ;
+    Token putToken = Token( "(", 9999, 9999, LEFT_PAREN ) ;
     token_wait_vector.insert( index, 1, putToken ) ;
     if ( IsS_EXP( temp_token, token_wait_stack, token_wait_vector ) ) {
       index = token_wait_vector.end() ;
-      Token putToken2 = Token( ")", 9999, 9999 ) ;
+      Token putToken2 = Token( ")", 9999, 9999, RIGHT_PAREN ) ;
       token_wait_vector.insert( index, 1, putToken2 ) ;
       return true ;
     } // if
@@ -998,6 +1031,63 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
   return false ;
 
 } // Statement::IsS_EXP()
+
+void Statement :: CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_vector, bool skip_paren ) {
+/*
+進來之後要開始做樹 基本上在一開始應該是有一個TreeNode的 所以在外面要先準備好
+*/
+  if ( wait_token_vector.front().m_type == LEFT_PAREN ) {
+    if ( now_TreePtr->m_left_ok == true ) {
+      TreeNode* tempNode = new TreeNode() ;
+      now_TreePtr->AddLeft( tempNode ) ;
+      wait_token_vector.erase( wait_token_vector.begin() ) ;
+      CreateLisp( now_TreePtr->m_left, wait_token_vector, false ) ;
+    } // 可以直接加
+    else {
+      TreeNode* tempNode = new TreeNode() ;
+      now_TreePtr->AddRight( tempNode ) ;
+      CreateLisp( now_TreePtr->m_right, wait_token_vector, false ) ;
+    } // 不能直接加
+  } // if 如果今天遇到"(" 那我們要先確認現在指向的這個TreeNode的left是否有東西 
+    // 如果沒有的話可以直接在left加一個新的TreeNode 並且處理掉第一項
+    // 如果有東西的話要先在右邊加一個TreeNode 然後進到那個function裡面
+  else {
+    if ( wait_token_vector.front().m_type == DOT ) {
+          if ( wait_token_vector[1].m_type == LEFT_PAREN  ) {
+            wait_token_vector.erase( wait_token_vector.begin(), wait_token_vector.begin() + 1 ) ;
+            CreateLisp( now_TreePtr, wait_token_vector, true ) ;
+          } // if
+          else if ( wait_token_vector[1].m_token_string == "0" || 
+                    wait_token_vector[1].m_token_string == "nil" ) {
+            wait_token_vector.erase( wait_token_vector.begin(), wait_token_vector.begin() + 1 ) ;
+          } // else if
+
+          CreateLisp( now_TreePtr, wait_token_vector, false ) ;
+    } // if
+    else if ( wait_token_vector.front().m_type == RIGHT_PAREN ) {
+      wait_token_vector.erase( wait_token_vector.begin() ) ;
+    } // else 如果是 ")" 
+    else {
+      if ( now_TreePtr->m_left_ok == true ) {
+        Token* tempToken = new Token( wait_token_vector.front().m_token_string, 
+                                      wait_token_vector.front().m_colnum,
+                                      wait_token_vector.front().m_line,
+                                      wait_token_vector.front().m_type ) ;
+        now_TreePtr->AddLeft( tempToken ) ;
+        wait_token_vector.erase( wait_token_vector.begin() ) ;
+        CreateLisp( now_TreePtr, wait_token_vector, false ) ;
+      } // if
+      else {
+        TreeNode* tempNode = new TreeNode() ;
+        now_TreePtr->AddRight( tempNode ) ;
+        CreateLisp( now_TreePtr->m_right, wait_token_vector, false ) ;        
+      } // 
+    } // else 如果今天遇到 atom 那我們要先確認現在指向的這個TreeNode的left是否有東西 
+      // 如果沒有的話可以直接在left加一個新的Token 並且處理掉第一項
+      // 如果有東西的話要先在右邊加一個TreeNode 然後進到那個function裡面
+  }
+
+} // Statement::CreateLisp()
 
 bool Statement :: IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) {
   if ( token_wait_vector.size() ) {
@@ -1206,7 +1296,20 @@ void Statement :: GetStatement() {
     if ( m_not_end ) {
       if ( IsS_EXP( token,  wait_token_stack, wait_token_vector ) ) {
         bool new_line = false ;
-        PrintTotalTokenAtvector( wait_token_vector, 0, new_line ) ; 
+        // PrintTotalTokenAtvector( wait_token_vector, 0, new_line ) ; 
+        if ( wait_token_vector.size() == 1 ) {
+          cout << m_tokenCategorier.ChangeToken( wait_token_vector.front().m_token_string ) << endl ;
+          wait_token_vector.erase( wait_token_vector.begin() ) ;
+        } // if
+        else {
+          if (  wait_token_vector.front().m_type == LEFT_PAREN ) {
+            m_nowTreePtr = new TreeNode() ;
+            wait_token_vector.erase( wait_token_vector.begin() ) ;
+            CreateLisp( m_nowTreePtr, wait_token_vector, false ) ;
+          } // if
+        } // else
+
+        m_pl_tokenGetter.Reload() ;
       } // if
       else {
         PopStackToLast( wait_token_stack ) ; 
@@ -1219,7 +1322,6 @@ void Statement :: GetStatement() {
       cout << token.m_token_string << endl ;
     } // else 
 
-    m_pl_tokenGetter.ReadReload() ;
   } // try
   catch( exception &e ) {
     if ( strcmp( e.what(), "EOF error" ) == 0 ) {
