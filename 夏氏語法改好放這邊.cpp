@@ -49,6 +49,16 @@ enum G_Category {
   LISP = 7788
 };
 
+string g_PreUseToken[39] { "define", "cons", "list", "quote", "'", "car", "cdr", "+", "-", "*", 
+                           "\\", "not", "and", "or", ">", ">=", "<", "<=", "=", "string-append", 
+                           "string>?", "string<?", "string=?","eqv?", "equal?", "begin", "if", "cond", 
+                           "clear-environment" } ; 
+/*
+  這堆東西是一開始就要用的字串
+  每個都有特定的意義
+  如果遇到這些東西 就要確認他們的狀態了
+*/
+
 class Token {
   public : string m_token_string ;
   public : int m_colnum ;
@@ -858,19 +868,16 @@ class Statement {
                                           vector<Token> &token_wait_vector ) ; 
   protected : bool IsATOM( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ;
   protected : bool IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ;
+  protected : bool Is
   protected : void GetStatement() ;
   protected : void PopStackToLast( stack<Token> &token_stack ) ;
   protected : void PopvectorToLast( vector<Token> &token_queue ) ;
   protected : bool IsDOTANDPAREN( vector<Token> &token_wait_vector, int level ) ;
   protected : void PrintWhiteSpaceWithLevel( int level ) ;
-  protected : void PrintTotalTokenNoPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) ;
-  protected : void PrintTotalTokenInPAREN( vector<Token> &token_wait_vector, int level, bool &new_line ) ;
-  protected : void PrintTotalTokenAtvector( vector<Token> &token_wait_vector, int level, bool &new_line ) ;
-  protected : void PrintTotalTokenAtvectorFirst( vector<Token> &token_wait_vector, 
-                                                 int level, bool new_line ) ;
   protected : void PrintFunction( vector<Token> &token_function_vector ) ;
   protected : void CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_vector, bool skip_paren ) ;
   protected : void PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) ;
+  protected : void PrintStatementResult( vector<Token> &wait_token_vector ) ;
   public : void PrintAllOfStatement() ;
 
   public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
@@ -1173,6 +1180,23 @@ void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
 
 } // Statement::PrintLisp()
 
+void Statement :: PrintStatementResult( vector<Token> &wait_token_vector ) {
+
+  if (  wait_token_vector.front().m_type == LEFT_PAREN ) {
+    m_nowTreePtr->m_left = new TreeNode() ;
+    m_nowTreePtr->m_left_ok = false ;
+    m_nowTreePtr->m_type = LISP ;
+    wait_token_vector.erase( wait_token_vector.begin() ) ;
+    CreateLisp( m_nowTreePtr->m_left, wait_token_vector, false ) ;
+    bool enter = false ;
+    PrintLisp( m_nowTreePtr, 0, enter ) ;
+  } // if
+  else if ( wait_token_vector.size() == 1 ) {
+    cout << m_tokenCategorier.ChangeToken( wait_token_vector.front().m_token_string ) << endl ;
+    wait_token_vector.erase( wait_token_vector.begin() ) ;
+  } // else if
+
+} // Statement::PrintStatementResult()
 
 void Statement :: GetStatement() {
 
@@ -1185,23 +1209,7 @@ void Statement :: GetStatement() {
     if ( m_not_end ) {
       if ( IsS_EXP( token,  wait_token_stack, wait_token_vector ) ) {
         bool new_line = false ;
-        // PrintTotalTokenAtvector( wait_token_vector, 0, new_line ) ; 
-        if ( wait_token_vector.size() == 1 ) {
-          cout << m_tokenCategorier.ChangeToken( wait_token_vector.front().m_token_string ) << endl ;
-          wait_token_vector.erase( wait_token_vector.begin() ) ;
-        } // if
-        else {
-          if (  wait_token_vector.front().m_type == LEFT_PAREN ) {
-            m_nowTreePtr->m_left = new TreeNode() ;
-            m_nowTreePtr->m_left_ok = false ;
-            m_nowTreePtr->m_type = LISP ;
-            wait_token_vector.erase( wait_token_vector.begin() ) ;
-            CreateLisp( m_nowTreePtr->m_left, wait_token_vector, false ) ;
-            bool enter = false ;
-            PrintLisp( m_nowTreePtr, 0, enter ) ;
-          } // if
-        } // else
-
+        PrintStatementResult( wait_token_vector ) ; 
         m_pl_tokenGetter.Reload() ;
       } // if
       else {
