@@ -49,7 +49,7 @@ enum G_Category {
   LISP = 7788,
   ATOM = 6655,
   CONS = 7789,
-  BOOL = 9999
+  BOOL = 9876
 };
 
 /*
@@ -959,7 +959,6 @@ bool GetTokenMachine :: GetToken( Token & token ) {
 bool GetTokenMachine :: GetNextToken( Token &Out_token ) {
   /*
   結論:可以得到一個token,但要自行決定return哪個
-  the function is we can get the token but we need to chiose Out_token != "" 
   */
   try {
     m_token.m_token_string = "" ;
@@ -1118,7 +1117,6 @@ void Statement :: ErrorMessage( string type, int line, int column, string token 
 Token Statement :: GetNextToken( stack<Token> &token_wait_stack ) {
 /*
   結論 : 得到一個token,無論是從哪裡拿的
-  從輸入的文件或stack裡面拿一個token出來 ( 如果stack有東西就先用stack的 這樣才不會打架 )
 */
   if ( ! token_wait_stack.empty() ) {
     Token token = token_wait_stack.top() ;
@@ -1216,8 +1214,6 @@ void Statement :: PopvectorToLast( vector<Token> &token_vector ) {
 bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) {
   Token tempToken = Token( token.m_token_string, token.m_colnum, token.m_line, token.m_type ) ;
   token_wait_vector.push_back( tempToken ) ; 
-  // 這裡出現SafeCode的問題 我不知道為甚麼會發生 他不該發生這件事情
-  // 你有印象老大可能會有那些地方會有safeCode的嗎
      
   if ( IsATOM( token, token_wait_stack, token_wait_vector ) ) {
     return true ;
@@ -1225,11 +1221,6 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == LEFT_PAREN ) {
     Token temp_token = GetNextToken( token_wait_stack ) ;
     if ( IsS_EXP( temp_token, token_wait_stack, token_wait_vector ) ) {
-      // 從這裡進去之後才會出問題 我不確定跟這個有沒有關係
-      // 我用recursive 第二次進入這個function 然後對我class內的vector直接做push
-      // 我不知道怎麼解釋這部分 一開始以為是怕記憶體溢出所以我又另外在class做一個tempToken
-      // 結果一樣 
-      // by the way 測資1除了這問題以外都對了 
       CheckTheS_EXP_WHILE( token_wait_stack, token_wait_vector ) ; 
       CheckTheDOT_AND_S_EXP( token_wait_stack, token_wait_vector ) ;
       temp_token = GetNextToken( token_wait_stack ) ;
