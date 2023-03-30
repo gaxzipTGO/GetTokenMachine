@@ -79,6 +79,8 @@ class Token {
 } 
 ;
 
+// ------------------------------------------------------------NEW-------------------------------------------
+
 struct Function {
   string function_name ;
   string operate ;
@@ -161,7 +163,28 @@ bool SearchFromFunction( vector<Function> function_vector, string symbol ) {
   } // for
 
   // 沒有找到該符號
-  return false;
+  
+  return false ;
+} // SearchFromFunction()
+
+Function GetFromFunction( string symbol ) {
+    // 在vector中查找特定符號
+  for ( vector<Function>::iterator it = g_predef_function.begin() ; it != g_predef_function.end() ; ++it ) {
+      if ( it->function_name == symbol ) {
+          return *it ;
+      } // if
+  } // for
+
+  for ( vector<Function>::iterator it = g_custom_function.begin() ; it != g_custom_function.end() ; ++it ) {
+      if ( it->function_name == symbol ) {
+          return *it ;
+      } // if
+  } // for
+
+  // 沒有找到該符號
+  cout << "ERROR (unbound symbol) : " << symbol << endl ;
+  throw invalid_argument( "unbound symbol" ) ;
+
 } // SearchFromFunction()
 
 int GetArgument( string symbol ) {
@@ -183,8 +206,6 @@ int GetArgument( string symbol ) {
   // 沒有找到該符號，返回預設值0
   return 0;
 } // GetArgument()
-
-
 
 class TreeNode {
   public:
@@ -239,6 +260,58 @@ class TreeNode {
   } // IsNIL()
 }
 ;
+
+int CountRightNodes( TreeNode* root ) {
+    if ( root == NULL ) {
+        return 0 ;
+    } // if
+
+    int count = 0 ;
+    if ( root->m_right ) {
+        count++ ;
+    } // if
+    
+    count += CountRightNodes( root->m_right ) ;
+    return count ;
+} // CountRightNodes()
+
+bool CheckRightNodeCount(TreeNode* now_TreePtr, int argument, const std::string& operate) {
+    int right_node_count = CountRightNodes( now_TreePtr );
+    if ( operate == "<" ) {
+        return right_node_count < argument;
+    }
+    else if (operate == ">") {
+        return right_node_count > argument;
+    }
+    else if (operate == "<=") {
+        return right_node_count <= argument;
+    }
+    else if (operate == ">=") {
+        return right_node_count >= argument;
+    }
+    else if (operate == "==") {
+        return right_node_count == argument;
+    }
+    else {
+        // 非法的 operate 符號，可以選擇回傳 false 或拋出異常等處理方式
+        throw invalid_argument( "incorrect number of arguments" ) ;
+    }
+}
+
+bool CheckNodeValidity(TreeNode* now_ptr, vector<Function>& function_vector) {
+  string symbol = now_ptr->m_left_token->m_token_string ;
+  // 如果符號不在vector中，拋出錯誤
+  Function function = GetFromFunction( symbol ) ;
+  int argument = function.argument ;
+  string operater = function.operate ;
+  if ( CheckRightNodeCount( now_ptr, argument, operater ) ) {
+    return true ;
+  } // if
+
+  return false ;
+}
+
+// ------------------------------------------------------------NEW-------------------------------------------
 
 string To_String( int num ) {
 
@@ -981,9 +1054,11 @@ class Statement {
   protected : void PrintWhiteSpaceWithLevel( int level ) ;
   protected : void PrintFunction( vector<Token> &token_function_vector ) ;
   protected : void CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_vector, bool skip_paren ) ;
-  protected : void PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) ;
   protected : void PrintStatementResult( vector<Token> &wait_token_vector ) ;
+  protected : void Exe_S_EXP( TreeNode* now_TreePtr ) ;
+
   public : void PrintAllOfStatement() ;
+  public : void PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) ;
 
   public : Statement( GetTokenMachine token_get, TokenClassCategory token_category ) {
     m_not_end = true ;
@@ -1150,17 +1225,11 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
   } // else if 
   else if ( m_tokenCategorier.GetThisTokenType( token.m_token_string ) == QUOTE ) {
     Token temp_token = GetNextToken( token_wait_stack ) ;
-    vector<Token>::iterator index = token_wait_vector.end() -1 ; // 這是quote所在位置
-    Token putToken = Token( "(", 9999, 9999, LEFT_PAREN ) ;
-    token_wait_vector.insert( index, 1, putToken ) ;
     if ( IsS_EXP( temp_token, token_wait_stack, token_wait_vector ) ) {
-      index = token_wait_vector.end() ;
-      Token putToken2 = Token( ")", 9999, 9999, RIGHT_PAREN ) ;
-      token_wait_vector.insert( index, 1, putToken2 ) ;
       return true ;
     } // if
     else {
-      token_wait_vector.erase( index ) ;
+      token_wait_vector.erase( token_wait_vector.end() ) ;
       return false ;
     } // else
 
@@ -1171,20 +1240,6 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
   return false ;
 
 } // Statement::IsS_EXP()
-
-int CountRightNodes( TreeNode* root ) {
-    if ( root == NULL ) {
-        return 0 ;
-    } // if
-
-    int count = 0 ;
-    if ( root->m_right ) {
-        count++ ;
-    } // if
-    
-    count += CountRightNodes( root->m_right ) ;
-    return count ;
-} // CountRightNodes()
 
 void Statement :: CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_vector, bool skip_paren ) {
 /*
@@ -1299,6 +1354,13 @@ void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
 
 } // Statement::PrintLisp()
 
+// ------------------------------------------------------------NEW-------------------------------------------
+void Statement :: Exe_S_EXP( TreeNode* now_TreePtr ) {
+  
+} // Statement::Exe_S_EXP()
+// ------------------------------------------------------------NEW-------------------------------------------
+
+
 void Statement :: PrintStatementResult( vector<Token> &wait_token_vector ) {
 
   bool enter = false ;  
@@ -1322,7 +1384,7 @@ void Statement :: PrintStatementResult( vector<Token> &wait_token_vector ) {
     m_nowTreePtr->m_type = TOKEN ;
     wait_token_vector.erase( wait_token_vector.begin() ) ;
   } // else if
-
+  
   PrintLisp( m_nowTreePtr, 0, enter ) ;  
 
 
