@@ -46,7 +46,10 @@ enum G_Category {
   QUOTE = 6543,
   SYMBOL = 3228,
   TOKEN = 5556,
-  LISP = 7788
+  LISP = 7788,
+  ATOM = 6655,
+  CONS = 7789,
+  BOOL = 9999
 };
 
 /*
@@ -83,83 +86,91 @@ class Token {
 
 struct Function {
   string function_name ;
-  string operate ;
+  string operater ;
   int argument ;
 }
 ;
+
+Function SetFunctionStruct( string function_name,  string operater, int argument ) {
+  Function temp ;
+  temp.function_name = function_name ;
+  temp.operater = operater ;
+  temp.argument = argument ;
+  return temp ;
+} // SetFunctionStruct()
 
 vector<Function> g_predef_function ;
 vector<Function> g_custom_function ;
 
 void LoadPreDefFunction() {
   // Constructors
-  g_predef_function.push_back( { "cons", "==", 2 } ) ;
-  g_predef_function.push_back( { "list", ">=", 0 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "cons", "==", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "list", ">=", 0 ) ) ;
 
   // Bypassing the default evaluation
-  g_predef_function.push_back( { "quote", "==", 1 } ) ;
-  g_predef_function.push_back( { "'", "==", 1 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "quote", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "'", "==", 1 ) ) ;
 
   // The binding of a symbol to an S-expression
-  g_predef_function.push_back( { "define", "==", 2 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "define", "==", 2 ) ) ;
 
   // Part accessors
-  g_predef_function.push_back( { "car", "==", 1 } ) ;
-  g_predef_function.push_back( { "cdr", "==", 1 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "car", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "cdr", "==", 1 ) ) ;
 
   // Primitive predicates (all functions below can only take 1 argument)
-  g_predef_function.push_back( { "atom?", "==", 1 } ) ;
-  g_predef_function.push_back( { "pair?", "==", 1 } ) ;
-  g_predef_function.push_back( { "list?", "==", 1 } ) ;
-  g_predef_function.push_back( { "null?", "==", 1 } ) ;
-  g_predef_function.push_back( { "integer?", "==", 1 } ) ;
-  g_predef_function.push_back( { "real?", "==", 1 } ) ;
-  g_predef_function.push_back( { "number?", "==", 1 } ) ;
-  g_predef_function.push_back( { "string?", "==", 1 } ) ;
-  g_predef_function.push_back( { "boolean?", "==", 1 } ) ;
-  g_predef_function.push_back( { "symbol?", "==", 1 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "atom?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "pair?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "list?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "null?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "integer?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "real?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "number?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "string?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "boolean?", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "symbol?", "==", 1 ) ) ;
 
   // Basic arithmetic, logical and string operations
-  g_predef_function.push_back( { "+", ">=", 2 } ) ;
-  g_predef_function.push_back( { "-", ">=", 2 } ) ;
-  g_predef_function.push_back( { "*", ">=", 2 } ) ;
-  g_predef_function.push_back( { "/", ">=", 2 } ) ;
-  g_predef_function.push_back( { "not", "==", 1 } ) ;
-  g_predef_function.push_back( { "and", ">=", 2 } ) ;
-  g_predef_function.push_back( { "or", ">=", 2 } ) ;
-  g_predef_function.push_back( { ">", ">=", 2 } ) ;
-  g_predef_function.push_back( { ">=", ">=", 2 } ) ;
-  g_predef_function.push_back( { "<", ">=", 2 } ) ;
-  g_predef_function.push_back( { "<=", ">=", 2 } ) ;
-  g_predef_function.push_back( { "=", ">=", 2 } ) ;
-  g_predef_function.push_back( { "string-append", ">=", 2 } ) ;
-  g_predef_function.push_back( { "string>?", ">=", 2 } ) ;
-  g_predef_function.push_back( { "string<?", ">=", 2 } ) ;
-  g_predef_function.push_back( { "string=?", ">=", 2 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "+", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "-", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "*", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "/", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "not", "==", 1 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "and", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "or", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( ">", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( ">=", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "<", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "<=", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "=", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "string-append", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "string>?", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "string<?", ">=", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "string=?", ">=", 2 ) ) ;
 
   // Eqivalence tester
-  g_predef_function.push_back( { "eqv?", "==", 2 } ) ;
-  g_predef_function.push_back( { "equal?", "==", 2 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "eqv?", "==", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "equal?", "==", 2 ) ) ;
 
   // Sequencing and functional composition
-  g_predef_function.push_back( { "begin", ">=", 1 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "begin", ">=", 1 ) ) ;
 
   // Conditionals
-  g_predef_function.push_back( { "if", "==", 2 } ) ;
-  g_predef_function.push_back( { "if", "==", 3 } ) ;
-  g_predef_function.push_back( { "cond", ">=", 1 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "if", "==", 2 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "if", "==", 3 ) ) ;
+  g_predef_function.push_back( SetFunctionStruct( "cond", ">=", 1 ) ) ;
   // clean-environment
-  g_predef_function.push_back( { "clean-environment", "==", 0 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "clean-environment", "==", 0 ) ) ;
   // exit
-  g_predef_function.push_back( { "exit", "==", 0 } ) ;
+  g_predef_function.push_back( SetFunctionStruct( "exit", "==", 0 ) ) ;
 } // LoadPreDefFunction()
 
 bool SearchFromFunction( vector<Function> function_vector, string symbol ) {
     // 在vector中查找特定符號
   for ( vector<Function>::iterator it = function_vector.begin() ; it != function_vector.end() ; ++it ) {
-      if ( it->function_name == symbol ) {
-          return true;
-      } // if
+    if ( it->function_name == symbol ) {
+      return true;
+    } // if
   } // for
 
   // 沒有找到該符號
@@ -168,39 +179,39 @@ bool SearchFromFunction( vector<Function> function_vector, string symbol ) {
 } // SearchFromFunction()
 
 Function GetFromFunction( string symbol ) {
-    // 在vector中查找特定符號
+  // 在vector中查找特定符號
   for ( vector<Function>::iterator it = g_predef_function.begin() ; it != g_predef_function.end() ; ++it ) {
-      if ( it->function_name == symbol ) {
-          return *it ;
-      } // if
+    if ( it->function_name == symbol ) {
+      return *it ;
+    } // if
   } // for
 
   for ( vector<Function>::iterator it = g_custom_function.begin() ; it != g_custom_function.end() ; ++it ) {
-      if ( it->function_name == symbol ) {
-          return *it ;
-      } // if
+    if ( it->function_name == symbol ) {
+      return *it ;
+    } // if
   } // for
 
   // 沒有找到該符號
   cout << "ERROR (unbound symbol) : " << symbol << endl ;
   throw invalid_argument( "unbound symbol" ) ;
 
-} // SearchFromFunction()
+} // GetFromFunction()
 
 int GetArgument( string symbol ) {
     // 在vector中查找特定符號
   for ( vector<Function>::iterator it = g_predef_function.begin() ; 
         it != g_predef_function.end() ; ++it ) {
-      if ( it->function_name == symbol ) {
-          return it->argument ;
-      } // if
+    if ( it->function_name == symbol ) {
+      return it->argument ;
+    } // if
   } // for
 
   for ( vector<Function>::iterator it = g_custom_function.begin() ; 
         it != g_custom_function.end() ; ++it ) {
-      if ( it->function_name == symbol ) {
-          return it->argument ;
-      } // if
+    if ( it->function_name == symbol ) {
+      return it->argument ;
+    } // if
   } // for
 
   // 沒有找到該符號，返回預設值0
@@ -258,58 +269,72 @@ class TreeNode {
     
     return false ;
   } // IsNIL()
-}
+} // TreeNode
 ;
 
 int CountRightNodes( TreeNode* root ) {
-    if ( root == NULL ) {
-        return 0 ;
-    } // if
+  if ( root == NULL ) {
+    return 0 ;
+  } // if
 
-    int count = 0 ;
-    if ( root->m_right ) {
-        count++ ;
-    } // if
-    
-    count += CountRightNodes( root->m_right ) ;
-    return count ;
+  int count = 0 ;
+  if ( root->m_right ) {
+    count++ ;
+  } // if
+  
+  count += CountRightNodes( root->m_right ) ;
+  return count ;
 } // CountRightNodes()
 
-bool CheckRightNodeCount(TreeNode* now_TreePtr, int argument, const std::string& operate) {
-    int right_node_count = CountRightNodes( now_TreePtr );
-    if ( operate == "<" ) {
-        return right_node_count < argument;
-    }
-    else if (operate == ">") {
-        return right_node_count > argument;
-    }
-    else if (operate == "<=") {
-        return right_node_count <= argument;
-    }
-    else if (operate == ">=") {
-        return right_node_count >= argument;
-    }
-    else if (operate == "==") {
-        return right_node_count == argument;
-    }
-    else {
-        // 非法的 operate 符號，可以選擇回傳 false 或拋出異常等處理方式
-        throw invalid_argument( "incorrect number of arguments" ) ;
-    }
-}
+bool CheckRightNodeCount( TreeNode* now_TreePtr, int argument, const string& operater ) {
+  int right_node_count = CountRightNodes( now_TreePtr );
+  if ( operater == "<" ) {
+    return right_node_count < argument;
+  } // if
+  else if ( operater == ">" ) {
+    return right_node_count > argument;
+  } // else if
+  else if ( operater == "<=" ) {
+    return right_node_count <= argument;
+  } // else if
+  else if ( operater == ">=" ) {
+    return right_node_count >= argument;
+  } // else if
+  else if ( operater == "==" ) {
+    return right_node_count == argument;
+  } // else if
+  else {
+    // 非法的 operater 符號，可以選擇回傳 false 或拋出異常等處理方式
+    throw invalid_argument( "incorrect number of arguments" ) ;
+  } // else
+} // CheckRightNodeCount()
 
-bool CheckNodeValidity(TreeNode* now_ptr, vector<Function>& function_vector) {
+bool CheckNodeValidity( TreeNode* now_ptr, vector<Function>& function_vector ) {
   string symbol = now_ptr->m_left_token->m_token_string ;
   // 如果符號不在vector中，拋出錯誤
   Function function = GetFromFunction( symbol ) ;
   int argument = function.argument ;
-  string operater = function.operate ;
+  string operater = function.operater ;
   if ( CheckRightNodeCount( now_ptr, argument, operater ) ) {
     return true ;
   } // if
 
   return false ;
-}
+} // CheckNodeValidity()
+
+void Function_CheckAtom( vector<Token> &input_token, vector<Token> &output_token ) {
+// ex: (cons 3 nil ) 丟進來這裡的是: 3 nil ) 
+
+} // Function_CheckAtom()
+
+void Function_CheckPair( vector<Token> &input_token, vector<Token> &output_token ) {
+
+
+} // Function_CheckPair()
+
+void Function_CheckList( vector<Token> &input_token, vector<Token> &output_token ) {
+
+} // Function_CheckList()
 
 // ------------------------------------------------------------NEW-------------------------------------------
 
@@ -359,7 +384,7 @@ class TokenClassCategory {
     return true ;
   } // IsInt()   
 
-  protected: virtual bool IsIntMissOperate( string token, bool noSize ) {
+  protected: virtual bool IsIntMissoperater( string token, bool noSize ) {
   /*
     確認給進來的這一項是不是數字 可以無視一次+ or - 是的話回傳一個 true
   */
@@ -385,9 +410,9 @@ class TokenClassCategory {
 
     return true ;
 
-  } // IsIntMissOperate()
+  } // IsIntMissoperater()
 
-  protected: virtual bool IsIntMissOperate( string token ) {
+  protected: virtual bool IsIntMissoperater( string token ) {
   /*
     確認給進來的這一項是不是數字 可以無視一次+ or - 是的話回傳一個 true
   */
@@ -414,14 +439,14 @@ class TokenClassCategory {
 
     return true ;
 
-  } // IsIntMissOperate()
+  } // IsIntMissoperater()
 
   protected: virtual bool IsFloat( string token ) {
     size_t find = token.find( '.' ) ;
     if ( token.npos != find ) {
       string sub_string_head = token.substr( 0, find ) ;
       string sub_string_tail = token.substr( find+1, token.size()-find ) ;
-      if ( IsIntMissOperate( sub_string_head, false ) &&
+      if ( IsIntMissoperater( sub_string_head, false ) &&
            IsInt( sub_string_tail, false ) ) {
         return true ;
       } // if
@@ -473,7 +498,7 @@ class TokenClassCategory {
       if ( token.at( i ) == '.' ) {
         string sub_token_head = token.substr( 0, i ) ;
         string sub_token_tail = token.substr( i+1, token.size() - i ) ;
-        if ( ! IsIntMissOperate( sub_token_head ) ) {
+        if ( ! IsIntMissoperater( sub_token_head ) ) {
           return token ;
         } // if
 
@@ -589,11 +614,11 @@ class TokenClassCategory {
     else if ( IsFloat( token ) ) {
       return FLOAT ;
     } // else if
-    else if ( IsIntMissOperate( token ) ) { // 只有純數字的int ex: 123 456
+    else if ( IsIntMissoperater( token ) ) { // 只有純數字的int ex: 123 456
       return INT ;
     } // else if 
     else if ( token.at( 0 ) == '+' || token.at( 0 ) == '-' ) { // +123 -456
-      if ( IsIntMissOperate( token.substr( 1, token.size() ) ) ) { 
+      if ( IsIntMissoperater( token.substr( 1, token.size() ) ) ) { 
         return INT ;
       } // if
       else return STRING ;
