@@ -5,6 +5,7 @@
 # include <stack>
 # include <queue>
 # include <vector>
+# include <map>
 # include <stdio.h>
 # include <string.h>
 
@@ -49,10 +50,6 @@ enum G_Category {
   LISP = 7788
 };
 
-string g_PreUseToken[39] { "define", "cons", "list", "quote", "'", "car", "cdr", "+", "-", "*", 
-                           "\\", "not", "and", "or", ">", ">=", "<", "<=", "=", "string-append", 
-                           "string>?", "string<?", "string=?","eqv?", "equal?", "begin", "if", "cond", 
-                           "clear-environment" } ; 
 /*
   這堆東西是一開始就要用的字串
   每個都有特定的意義
@@ -82,6 +79,113 @@ class Token {
   } // Token()
 } 
 ;
+
+struct Function {
+  string function_name ;
+  string operate ;
+  int argument ;
+}
+;
+
+vector<Function> g_predef_function ;
+vector<Function> g_custom_function ;
+
+void LoadPreDefFunction() {
+  // Constructors
+  g_predef_function.push_back( { "cons", "==", 2 } ) ;
+  g_predef_function.push_back( { "list", ">=", 0 } ) ;
+
+  // Bypassing the default evaluation
+  g_predef_function.push_back( { "quote", "==", 1 } ) ;
+  g_predef_function.push_back( { "'", "==", 1 } ) ;
+
+  // The binding of a symbol to an S-expression
+  g_predef_function.push_back( { "define", "==", 2 } ) ;
+
+  // Part accessors
+  g_predef_function.push_back( { "car", "==", 1 } ) ;
+  g_predef_function.push_back( { "cdr", "==", 1 } ) ;
+
+  // Primitive predicates (all functions below can only take 1 argument)
+  g_predef_function.push_back( { "atom?", "==", 1 } ) ;
+  g_predef_function.push_back( { "pair?", "==", 1 } ) ;
+  g_predef_function.push_back( { "list?", "==", 1 } ) ;
+  g_predef_function.push_back( { "null?", "==", 1 } ) ;
+  g_predef_function.push_back( { "integer?", "==", 1 } ) ;
+  g_predef_function.push_back( { "real?", "==", 1 } ) ;
+  g_predef_function.push_back( { "number?", "==", 1 } ) ;
+  g_predef_function.push_back( { "string?", "==", 1 } ) ;
+  g_predef_function.push_back( { "boolean?", "==", 1 } ) ;
+  g_predef_function.push_back( { "symbol?", "==", 1 } ) ;
+
+  // Basic arithmetic, logical and string operations
+  g_predef_function.push_back( { "+", ">=", 2 } ) ;
+  g_predef_function.push_back( { "-", ">=", 2 } ) ;
+  g_predef_function.push_back( { "*", ">=", 2 } ) ;
+  g_predef_function.push_back( { "/", ">=", 2 } ) ;
+  g_predef_function.push_back( { "not", "==", 1 } ) ;
+  g_predef_function.push_back( { "and", ">=", 2 } ) ;
+  g_predef_function.push_back( { "or", ">=", 2 } ) ;
+  g_predef_function.push_back( { ">", ">=", 2 } ) ;
+  g_predef_function.push_back( { ">=", ">=", 2 } ) ;
+  g_predef_function.push_back( { "<", ">=", 2 } ) ;
+  g_predef_function.push_back( { "<=", ">=", 2 } ) ;
+  g_predef_function.push_back( { "=", ">=", 2 } ) ;
+  g_predef_function.push_back( { "string-append", ">=", 2 } ) ;
+  g_predef_function.push_back( { "string>?", ">=", 2 } ) ;
+  g_predef_function.push_back( { "string<?", ">=", 2 } ) ;
+  g_predef_function.push_back( { "string=?", ">=", 2 } ) ;
+
+  // Eqivalence tester
+  g_predef_function.push_back( { "eqv?", "==", 2 } ) ;
+  g_predef_function.push_back( { "equal?", "==", 2 } ) ;
+
+  // Sequencing and functional composition
+  g_predef_function.push_back( { "begin", ">=", 1 } ) ;
+
+  // Conditionals
+  g_predef_function.push_back( { "if", "==", 2 } ) ;
+  g_predef_function.push_back( { "if", "==", 3 } ) ;
+  g_predef_function.push_back( { "cond", ">=", 1 } ) ;
+  // clean-environment
+  g_predef_function.push_back( { "clean-environment", "==", 0 } ) ;
+  // exit
+  g_predef_function.push_back( { "exit", "==", 0 } ) ;
+} // LoadPreDefFunction()
+
+bool SearchFromFunction( vector<Function> function_vector, string symbol ) {
+    // 在vector中查找特定符號
+  for ( vector<Function>::iterator it = function_vector.begin() ; it != function_vector.end() ; ++it ) {
+      if ( it->function_name == symbol ) {
+          return true;
+      } // if
+  } // for
+
+  // 沒有找到該符號
+  return false;
+} // SearchFromFunction()
+
+int GetArgument( string symbol ) {
+    // 在vector中查找特定符號
+  for ( vector<Function>::iterator it = g_predef_function.begin() ; 
+        it != g_predef_function.end() ; ++it ) {
+      if ( it->function_name == symbol ) {
+          return it->argument ;
+      } // if
+  } // for
+
+  for ( vector<Function>::iterator it = g_custom_function.begin() ; 
+        it != g_custom_function.end() ; ++it ) {
+      if ( it->function_name == symbol ) {
+          return it->argument ;
+      } // if
+  } // for
+
+  // 沒有找到該符號，返回預設值0
+  return 0;
+} // GetArgument()
+
+
 
 class TreeNode {
   public:
@@ -188,6 +292,9 @@ class TokenClassCategory {
     確認給進來的這一項是不是數字 可以無視一次+ or - 是的話回傳一個 true
   */
     bool miss = true ;
+    if ( token == "+" || token == "-" )
+      return false ;
+
     for ( int i = 0 ; i < token.size() ; i ++ ) {
       if ( ( token.at( i ) < '0' || token.at( i ) > '9' ) ) {
         if ( miss == false ) {
@@ -868,7 +975,6 @@ class Statement {
                                           vector<Token> &token_wait_vector ) ; 
   protected : bool IsATOM( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ;
   protected : bool IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<Token> &token_wait_vector ) ;
-  protected : bool Is
   protected : void GetStatement() ;
   protected : void PopStackToLast( stack<Token> &token_stack ) ;
   protected : void PopvectorToLast( vector<Token> &token_queue ) ;
@@ -1067,6 +1173,20 @@ bool Statement :: IsS_EXP( Token token, stack<Token> &token_wait_stack, vector<T
 
 } // Statement::IsS_EXP()
 
+int CountRightNodes( TreeNode* root ) {
+    if ( root == NULL ) {
+        return 0 ;
+    } // if
+
+    int count = 0 ;
+    if ( root->m_right ) {
+        count++ ;
+    } // if
+    
+    count += CountRightNodes( root->m_right ) ;
+    return count ;
+} // CountRightNodes()
+
 void Statement :: CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_vector, bool skip_paren ) {
 /*
 進來之後要開始做樹 基本上在一開始應該是有一個TreeNode的 所以在外面要先準備好
@@ -1151,7 +1271,7 @@ void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
           if ( level == 0 ) {
             if ( now_TreePtr->m_left->m_type == TOKEN ) {
               if ( now_TreePtr->m_left->m_left_token->m_token_string == "exit" ) {
-                if ( now_TreePtr->m_left->m_right == NULL ) {
+                if ( CountRightNodes( now_TreePtr->m_left ) == 0 ) {
                   throw invalid_argument( "Normal Exit" ) ;
                 } // if
               } // if
@@ -1182,19 +1302,30 @@ void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
 
 void Statement :: PrintStatementResult( vector<Token> &wait_token_vector ) {
 
+  bool enter = false ;  
   if (  wait_token_vector.front().m_type == LEFT_PAREN ) {
     m_nowTreePtr->m_left = new TreeNode() ;
     m_nowTreePtr->m_left_ok = false ;
     m_nowTreePtr->m_type = LISP ;
     wait_token_vector.erase( wait_token_vector.begin() ) ;
     CreateLisp( m_nowTreePtr->m_left, wait_token_vector, false ) ;
-    bool enter = false ;
-    PrintLisp( m_nowTreePtr, 0, enter ) ;
+    /*
+    這邊要開始對statement做計算
+    */
   } // if
   else if ( wait_token_vector.size() == 1 ) {
-    cout << m_tokenCategorier.ChangeToken( wait_token_vector.front().m_token_string ) << endl ;
+    Token* tempToken = new Token( wait_token_vector.front().m_token_string, 
+                                  wait_token_vector.front().m_colnum,
+                                  wait_token_vector.front().m_line,
+                                  wait_token_vector.front().m_type ) ;
+    m_nowTreePtr->AddLeft( tempToken ) ;
+    m_nowTreePtr->m_left_ok = false ;
+    m_nowTreePtr->m_type = TOKEN ;
     wait_token_vector.erase( wait_token_vector.begin() ) ;
   } // else if
+
+  PrintLisp( m_nowTreePtr, 0, enter ) ;  
+
 
 } // Statement::PrintStatementResult()
 
@@ -1254,6 +1385,7 @@ void Statement :: PrintAllOfStatement() {
 int main() {
 
   cout << "Welcome to OurScheme!" << endl ;
+  LoadPreDefFunction() ;
   char testNum[10] ;
   cin.getline( testNum, 10 ) ;
   GetTokenMachine getToken ;
