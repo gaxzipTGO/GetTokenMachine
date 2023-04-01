@@ -358,6 +358,28 @@ void Function_CheckList( vector<Token> &input_token, vector<Token> &output_token
 
 } // Function_CheckList()
 
+struct Object {
+  string object_name ;
+  TreeNode* object_ptr ;
+}
+;
+
+vector<Obect> g_def_object ;
+
+TreeNode* Get_DefObject_Ptr( string object_name ) {
+
+  for ( vector<Object>::iterator it = g_def_object.begin() ; 
+        it != g_def_object.end() ; ++it ) {
+    if ( it->object_name == object_name ) {
+      return it->object_ptr ;
+    } // if
+  } // for
+
+  throw invalid_argument( "Not Define" ) ;
+
+} // Get_DefObject_Ptr()
+
+
 // ------------------------------------------------------------NEW-------------------------------------------
 
 string To_String( int num ) {
@@ -1392,9 +1414,30 @@ void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
 
 } // Statement::PrintLisp()
 
+
 // ------------------------------------------------------------NEW-------------------------------------------
-void Statement :: Exe_S_EXP( TreeNode* now_TreePtr ) {
-  
+void Statement :: Exe_S_EXP( TreeNode* inputPtr, TreeNode* outputPtr ) {
+/*
+這邊比較複雜 我寫多一點註解以免大家搞不懂這裡的構想 每次看到這裡都覺得寫這個的人是個天才
+我們在做這部分之前就會先建好一個 tree了 但是這個樹只是一個初步的雛型 我們要先對他進行預處理
+最後我們要使用的是outputPtr那個pointer 由於他已經是指向記憶體位置 因此我們不用加"&"號
+*/  
+  if ( inputPtr->m_type == LISP ) {
+
+  }  // if 如果inputPtr指向的是一個LISP 那它代表的就是"("這東西 因此我們要進入ReadLEFT來確認他新的pointer 我給你的東西
+     // 一樣是一個vector 那邊不會變 所以你可以放心地寫 不用怕
+  else if ( inputPtr->m_type == TOKEN ) {
+
+  } // else if 在他是一個TOKEN的情況下 我們要先知道她有沒有被宣告過 有一個全域變數會專門處理這件事情 我很高機率會把這東西
+    // 名字設定為 g_def_object ( 取名由來為: 全域的 定義的 物件 ( 這裡處理的其實不算是變數 比較像是物件 ) ),
+    // 那這邊應該會要有一個funciton 是一個 Get_DefObject_Ptr( 取名由來: 得到 定義的 物件的 指向 ) 他回傳的會是一個TreeNode *
+    // 所以說 我們還會有一個struct 名為 Object 他裡面會放兩種東西 一個是該物件的名稱 我們用string 
+    // 一個是他所指向的記憶體位置TreeNode * 那這樣這個Get_DefObject_ptr 就可以工作了 這樣就不用擔心 定義的部分該怎麼辦
+    // 差不多在370行左右的地方
+  else{
+    cout << "Type error please Check" << endl ;
+    throw ( "TYPE Error" ) ;
+  } // else 這邊正常來說是不可能進入的 如果進入 一定是前面有寫錯 要回去看!
 } // Statement::Exe_S_EXP()
 // ------------------------------------------------------------NEW-------------------------------------------
 
