@@ -34,6 +34,8 @@
                                     
 using namespace std ;
 
+const char* g_ARGUMENTERROR = "Argument Error" ;
+
 enum G_Category {
   LEFT_PAREN = 2344,
   RIGHT_PAREN = 2346,
@@ -49,7 +51,8 @@ enum G_Category {
   LISP = 7788,
   ATOM = 6655,
   CONS = 7789,
-  BOOL = 9876
+  BOOL = 9876,
+  FUNCTION = 21555
 };
 
 /*
@@ -57,6 +60,14 @@ enum G_Category {
   每個都有特定的意義
   如果遇到這些東西 就要確認他們的狀態了
 */
+
+void ErrorSymBol() {
+  if ( 1 ) throw invalid_argument( "Type Error" ) ;
+} // ErrorSymBol() 
+
+void ReadExit() {
+  if ( 1 ) throw invalid_argument( "Normal Exit" ) ;
+} // ReadExit()
 
 class Token {
   public : string m_token_string ;
@@ -193,7 +204,7 @@ Function GetFromFunction( string symbol ) {
   } // for
 
   // 沒有找到該符號
-  cout << "ERROR (unbound symbol) : " << symbol << endl ;
+  // cout << "ERROR (unbound symbol) : " << symbol << endl ;
   throw invalid_argument( "unbound symbol" ) ;
 
 } // GetFromFunction()
@@ -221,20 +232,26 @@ int GetArgument( string symbol ) {
 class TreeNode {
   public:
   Token* m_left_token ;
+  Token* m_right_token ;
   TreeNode* m_left ;
   TreeNode* m_right ;
   int m_type ;
+  int m_right_type ;
   bool m_left_ok ;
+  bool m_right_ok ;
   bool m_can_read ;
-
+  bool m_dont_exp ;
 
   TreeNode() {
     m_type = 0 ;
+    m_right_type = 0 ;
     m_left = NULL ;
     m_right = NULL ;
     m_left_token = NULL ;
+    m_right_token = NULL ;
     m_left_ok = true ;
     m_can_read = true ;
+    m_dont_exp = false ;
   } // TreeNode()
 
   TreeNode( bool dontread ) {
@@ -242,8 +259,21 @@ class TreeNode {
     m_left = NULL ;
     m_right = NULL ;
     m_left_token = NULL ;
+    m_right_token = NULL ;
     m_left_ok = true ;
     m_can_read = dontread ;
+  } // TreeNode()
+
+  TreeNode( int type ) {
+    m_type = type ;
+    m_left = NULL ;
+    m_right = NULL ;
+    m_left_token = NULL ;
+    m_right_token = NULL ;
+    if ( type == T ) {
+      m_type = TOKEN ;
+      m_left_token = new Token( "#t", 0, 0, T ) ;
+    } // 
   } // TreeNode()
 
   void AddLeft( Token* token ) {
@@ -263,7 +293,7 @@ class TreeNode {
   } // AddRight()
 
   bool IsNIL() {
-    if ( m_left == NULL && m_right == NULL && m_left_token == NULL ) {
+    if ( m_left == NULL && m_right == NULL && m_left_token == NULL && m_right_token == NULL ) {
       return true ;
     } // if
     
@@ -279,7 +309,14 @@ int CountRightNodes( TreeNode* root ) {
 
   int count = 0 ;
   if ( root->m_right ) {
-    count++ ;
+    if ( root->m_right->m_type == TOKEN ) {
+      if (  root->m_right->m_left_token->m_type != QUOTE ) {
+        count ++ ;
+      } // if
+    } // if
+    else {
+      count ++ ;
+    } // else
   } // if
   
   count += CountRightNodes( root->m_right ) ;
@@ -309,7 +346,7 @@ bool CheckRightNodeCount( TreeNode* now_TreePtr, int argument, const string& ope
   } // else
 } // CheckRightNodeCount()
 
-bool CheckNodeValidity( TreeNode* now_ptr, vector<Function>& function_vector ) {
+bool CheckNodeValidity( TreeNode* now_ptr ) {
   string symbol = now_ptr->m_left_token->m_token_string ;
   // 如果符號不在vector中，拋出錯誤
   Function function = GetFromFunction( symbol ) ;
@@ -323,7 +360,7 @@ bool CheckNodeValidity( TreeNode* now_ptr, vector<Function>& function_vector ) {
 } // CheckNodeValidity()
 
 bool IsAtomType( int type ) {
-  if ( type == SYMBOL || type == INT || type == FLOAT || type ==STRING || type == NIL || type == T ) {
+  if ( type == SYMBOL || type == INT || type == FLOAT || type == STRING || type == NIL || type == T ) {
     return true ;
   } // if
   else if ( type == LEFT_PAREN || type == RIGHT_PAREN ) {
@@ -332,11 +369,11 @@ bool IsAtomType( int type ) {
   else return false ;
 } // IsAtomType()
 
+
+
 void Function_CheckAtom( vector<Token> &input_token, vector<Token> &output_token ) {
 /*
 進來的一定都是通過文法的!!
-ex: (cons 3 nil ) 丟進來這裡的是: 3 nil ) 
- (atom? '(1 . 2))
 */
   Token null = Token( "NIL", 0, 0, NIL )  ;
   int num = input_token.size() ;
@@ -377,10 +414,10 @@ void Function_CheckList( vector<Token> &input_token, vector<Token> &output_token
   Token null = Token( "NIL", 0, 0, NIL )  ;
   vector<Token> temp ;
   for ( int i = 0 ; i < temp.size() ; i++ ) { // 只要list中有非ATOM的就一定不是LIST (應該是吧?)
-      if ( IsAtomType ( temp.at( i ).m_type == false ) ) {
-        output_token.push_back( null ) ;
-        return ;
-      } // if
+    if ( IsAtomType( temp.at( i ).m_type == false ) ) {
+      output_token.push_back( null ) ;
+      return ;
+    } // if
   } // for
     
     // '(3 4)
@@ -399,12 +436,41 @@ struct Object {
 
 vector<Object> g_def_object ;
 
+Token* CopyToken( Token* inputToken ) {
+  if ( inputToken != NULL )
+    return new Token( inputToken->m_token_string, inputToken->m_colnum,
+                      inputToken->m_line, inputToken->m_type ) ;
+  return NULL ;
+} // CopyToken()
+
+TreeNode* CopyObject( TreeNode* inputPtr ) {
+
+  if ( inputPtr == NULL ) {
+    return NULL ;
+  } // if
+  else {
+    TreeNode* copy_ptr = new TreeNode() ;
+    copy_ptr->m_left_ok = inputPtr->m_left_ok ;
+    copy_ptr->m_right_ok = inputPtr->m_right_ok ;
+    copy_ptr->m_can_read = inputPtr->m_can_read ;
+    copy_ptr->m_type = inputPtr->m_type ;
+    copy_ptr->m_right_type = inputPtr->m_right_type ;
+
+    copy_ptr->m_left = CopyObject( inputPtr->m_left ) ;
+    copy_ptr->m_right = CopyObject( inputPtr->m_right ) ;
+    copy_ptr->m_left_token = CopyToken( inputPtr->m_left_token ) ;
+    copy_ptr->m_right_token = CopyToken( inputPtr->m_right_token ) ;
+    return copy_ptr ;
+  } // else
+
+} // CopyObject()
+
 TreeNode* Get_DefObject_Ptr( string object_name ) {
 
   for ( vector<Object>::iterator it = g_def_object.begin() ; 
         it != g_def_object.end() ; ++it ) {
     if ( it->object_name == object_name ) {
-      return it->object_ptr ;
+      return CopyObject( it->object_ptr ) ;
     } // if
   } // for
 
@@ -412,6 +478,54 @@ TreeNode* Get_DefObject_Ptr( string object_name ) {
 
 } // Get_DefObject_Ptr()
 
+void DefineObject( Object object ) {
+
+  try {
+    for ( vector<Object>::iterator it = g_def_object.begin() ; 
+          it != g_def_object.end() ; ++it ) {
+      if ( it->object_name == object.object_name ) {
+        it->object_ptr = object.object_ptr ;
+      } // if
+    } // for
+
+    throw invalid_argument( "no define" ) ;
+  } // try
+  catch ( exception &e ) {
+    g_def_object.push_back( object ) ;
+  } // catch 
+
+} // DefineObject()
+
+bool IsDefinedOrNot( string object ) {
+
+  try {
+    Function temp = GetFromFunction( object ) ;
+    return true ;
+  } // try ;
+  catch( exception &e ) {
+    try {
+      TreeNode* temp_node = Get_DefObject_Ptr( object ) ;
+      return true ;
+    } // try
+    catch( exception &e ) {
+      return false ;
+    } // catch
+  } // catch
+
+} // IsDefinedOrNot()
+
+int GetDefinedType( string object ) {
+
+  try {
+    Function temp = GetFromFunction( object ) ;
+    return FUNCTION ;
+  } // try ;
+  catch( exception &e ) {
+    TreeNode* temp_node = Get_DefObject_Ptr( object ) ;
+    return SYMBOL ;
+  } // catch
+
+} // GetDefinedType()
 
 // ------------------------------------------------------------NEW-------------------------------------------
 
@@ -523,8 +637,8 @@ class TokenClassCategory {
     if ( token.npos != find ) {
       string sub_string_head = token.substr( 0, find ) ;
       string sub_string_tail = token.substr( find+1, token.size()-find ) ;
-      if ( IsIntMissoperater( sub_string_head, false ) &&
-           IsInt( sub_string_tail, false ) ) {
+      if ( ( sub_string_head == "+" || sub_string_head == "-" ||  
+             IsIntMissoperater( sub_string_head, false ) ) && IsInt( sub_string_tail, false ) ) {
         return true ;
       } // if
     } // if
@@ -569,7 +683,7 @@ class TokenClassCategory {
     return token ;
   } // DealWithOperater()
 
-  protected: virtual string DealWithDot_Back( string token ) {
+  public: virtual string DealWithDot_Back( string token ) {
     bool int_is = true ;
     for ( int i = 0 ; i < token.size() && int_is == true ; i ++ ) {
       if ( token.at( i ) == '.' ) {
@@ -685,7 +799,7 @@ class TokenClassCategory {
     else if ( token == "." ) {
       return DOT ;
     } // else if
-    else if ( token == "\'" ) {
+    else if ( token == "\'" || token == "quote" ) {
       return QUOTE ;
     } // else if
     else if ( IsFloat( token ) ) {
@@ -710,6 +824,127 @@ class TokenClassCategory {
    
 } 
 g_classCategory ;
+
+void ConvertString ( string s1, string s2, int &i1, int &i2, float &f1, float &f2, bool &b1, bool &b2 ) {
+  if ( s1.npos != s1.find( "." ) ) {
+    b1 = true ;
+    i1 = atoi( s1.c_str() ) ;
+  } // if
+  else {
+    sscanf(s1.c_str(), "%f", &f1);
+  } // else
+
+  if ( s2.npos != s2.find( "." ) ) {
+    b2 = true ;
+    i2 = atoi( s2.c_str() ) ;
+  } // if
+  else {
+    sscanf(s2.c_str(), "%f", &f2);
+  } // else
+} // ConvertString()
+
+string AddNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  float first_float = 0.0 ;
+  float second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
+  if ( first_is_int && second_is_int ) { // both int
+    type = INT ;
+    int sum = first_int + second_int ;
+    string temp = to_string(sum) ;
+    return temp ;
+  } // if both int
+  else {
+    type = FLOAT ;
+    int sum = first_float + second_float ;
+    string temp = to_string(sum) ;
+    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+  } // else
+} // AddNum 
+
+string MinusNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  float first_float = 0.0 ;
+  float second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
+    TokenClassCategory TokenClass ;
+    if ( first_is_int && second_is_int ) { // both int
+      type = INT ;
+      int sum = first_int - second_int ;
+      string temp = to_string(sum) ;
+      return temp ;
+    } // if both int
+    else {
+      type = FLOAT ;
+      int sum = first_float - second_float ;
+      string temp = to_string(sum) ;
+      return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+    } // else
+
+} // MinusNum() 
+
+string MultiplyNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  float first_float = 0.0 ;
+  float second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
+
+  if ( first_is_int && second_is_int ) { // both int
+    type = INT ;
+    int sum = first_int * second_int ;
+    string temp = to_string(sum) ;
+    return temp ;
+  } // if both int
+  else {
+    type = FLOAT ;
+    int sum = first_float * second_float ;
+    string temp = to_string(sum) ;
+    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+  } // else
+
+} // MultiplyNum() 
+
+string DividedNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  float first_float = 0.0 ;
+  float second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
+
+  if ( first_is_int && second_is_int ) { // both int
+    type = INT ;
+    int sum = first_int / second_int ;
+    string temp = to_string(sum) ;
+    return temp ;
+  } // if both int
+  else {
+    type = FLOAT ;
+    int sum = first_float / second_float ;
+    string temp = to_string(sum) ;
+    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+  } // else
+
+} // DividedNum() 
+
 
 class GetTokenMachine {
   protected: bool m_isFile ;
@@ -1156,7 +1391,7 @@ class Statement {
   protected : void PrintFunction( vector<Token> &token_function_vector ) ;
   protected : void CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_vector, bool skip_paren ) ;
   protected : void PrintStatementResult( vector<Token> &wait_token_vector ) ;
-  protected : void Exe_S_EXP( TreeNode* now_TreePtr ) ;
+  protected : TreeNode* Exe_S_EXP( TreeNode* inputPtr ) ;
 
   public : void PrintAllOfStatement() ;
   public : void PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) ;
@@ -1395,111 +1630,918 @@ void Statement :: CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_v
 } // Statement::CreateLisp()
 
 void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
-
-  if ( now_TreePtr != NULL && now_TreePtr->IsNIL() ) {
-    if ( enter )
-      PrintWhiteSpaceWithLevel( level-1 ) ;
-    cout << "nil" << endl ;
-    enter = true ;
-  } // if
-  else {
-    if ( now_TreePtr == NULL ) {
+  if ( level >= 0 ) {
+    if ( now_TreePtr != NULL && ( now_TreePtr->IsNIL() ) ) {
       if ( enter )
-        PrintWhiteSpaceWithLevel( level-1 ) ;
-      cout << ")" << endl ;
-      enter = true ;
+        PrintWhiteSpaceWithLevel( level ) ;    
+      if ( level == 0 || level == 1 ) {
+        cout << "nil" << endl ;
+        enter = true ;
+      } // if 
+
+      PrintLisp( now_TreePtr->m_right, level-1, enter ) ;
+
     } // if
     else {
-      if ( now_TreePtr->m_type == LISP ) {
-        if ( ! now_TreePtr->m_left->IsNIL() ) {
-          if ( enter )
-            PrintWhiteSpaceWithLevel( level ) ;
-
-          if ( level == 0 ) {
-            if ( now_TreePtr->m_left->m_type == TOKEN ) {
-              if ( now_TreePtr->m_left->m_left_token->m_token_string == "exit" ) {
-                if ( CountRightNodes( now_TreePtr->m_left ) == 0 ) {
-                  throw invalid_argument( "Normal Exit" ) ;
-                } // if
-              } // if
-            } // if 這裡是判斷有沒有遇到離開 基本上只會用到第一次而已
-          } // if
-
-          cout << "( " ;
-          enter = false ;
-        } // if
-
-        PrintLisp( now_TreePtr->m_left, level+1, enter ) ;
-      } // else if
-      else if ( now_TreePtr->m_type == TOKEN ) {
-
+      if ( now_TreePtr == NULL ) {
         if ( enter )
-          PrintWhiteSpaceWithLevel( level ) ;
-        cout << m_tokenCategorier.ChangeToken( now_TreePtr->m_left_token->m_token_string ) << endl ;
+          PrintWhiteSpaceWithLevel( level-1 ) ;
+        cout << ")" << endl ;
         enter = true ;
       } // if
+      else {
+        if ( now_TreePtr->m_type == LISP ) {
+          if ( enter )
+            PrintWhiteSpaceWithLevel( level ) ;
+          cout << "( " ;
+          enter = false ;
+          PrintLisp( now_TreePtr->m_left, level+1, enter ) ;
+        } // else if
+        else if ( now_TreePtr->m_type == TOKEN ) {
+          if ( enter ) {
+            PrintWhiteSpaceWithLevel( level ) ;
+            enter = false ;
+          } // if
 
-      if ( now_TreePtr->m_can_read )
-        PrintLisp( now_TreePtr->m_right, level, enter ) ;
+          cout << m_tokenCategorier.ChangeToken( now_TreePtr->m_left_token->m_token_string ) << endl ;
+
+          enter = true ;
+        } // if
+        else if ( now_TreePtr->m_type == NIL ) {
+          if ( enter )
+            PrintWhiteSpaceWithLevel( level ) ;
+          cout << "nil" << endl ;
+          enter = true ;          
+        } // else if
+
+        if ( now_TreePtr->m_can_read ) {
+          if ( now_TreePtr->m_right_token ) {
+            PrintWhiteSpaceWithLevel( level ) ;
+            cout << "." << endl ;
+            PrintWhiteSpaceWithLevel( level ) ;
+            cout << m_tokenCategorier.ChangeToken( now_TreePtr->m_right_token->m_token_string ) << endl ;
+          } // if
+          
+          PrintLisp( now_TreePtr->m_right, level, enter ) ;
+        } // if
+        
+      } // else
+
     } // else
-
-  } // else
-
+  } // if
 } // Statement::PrintLisp()
 
 
+// ------------------------------------------------------------更新-------------------------------------------
+TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) ;
+TreeNode* ReadQuote( TreeNode* inputPtr ) ;
+TreeNode* ReadCons( TreeNode* inputPtr, int time ) ;
+TreeNode* ReadLeft( TreeNode* inputPtr ) ;
+TreeNode* ReadList( TreeNode* inputPtr ) ;
+TreeNode* ReadDefine( TreeNode* inputPtr ) ;
+TreeNode* CheckFinal( TreeNode* inputPtr, bool right ) ;
+TreeNode* CreateToken( TreeNode* inputPtr ) ;
+TreeNode* ReadCar( TreeNode* inputPtr ) ;
+TreeNode* ReadCdr( TreeNode* inputPtr ) ;
+TreeNode* ReadATOM( TreeNode* inputPtr ) ;
+
+TreeNode* CreateToken( Token token ) {
+  TreeNode* now_TreePtr = new TreeNode( false ) ;
+  Token* tempToken = new Token( token.m_token_string, 
+                                  token.m_colnum,
+                                  token.m_line,
+                                  token.m_type ) ;
+  now_TreePtr->AddLeft( tempToken ) ;
+  now_TreePtr->m_left_ok = false ;
+  now_TreePtr->m_type = TOKEN ;
+  return now_TreePtr ;
+}  // CreateToken() 
+
+
+TreeNode* ReadQuote( TreeNode* inputPtr ) {
+
+  inputPtr = CopyObject( inputPtr->m_right ) ;
+  inputPtr->m_dont_exp = true ;
+  return inputPtr ;
+
+} // ReadQuote()
+
+TreeNode* ReadCons( TreeNode* inputPtr, int time ) {
+  TreeNode* nowPtr = NULL ;
+  if ( time == 2 ) {
+    return nowPtr ;
+  } // if
+
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+    if ( nowPtr == NULL ) {
+      nowPtr = new TreeNode( NIL ) ;
+    } // if 如果沒東西 要自動補給他 不然會出問題
+    // 如果他是lisp 要指向他所回傳的pointer
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      Function quote = GetFromFunction( inputPtr->m_left_token->m_token_string ) ;
+      nowPtr = ReadFunction( inputPtr, quote ) ;
+      inputPtr = inputPtr->m_right ;
+    } // if 如果他是quote 那我們就直接指向他所回傳的東西
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) )  { // 在這邊如果沒有定義過 他會直接拋出error
+        int type = GetDefinedType( inputPtr->m_left_token->m_token_string ) ;
+        if ( type == FUNCTION ) {
+          Function now_function = GetFromFunction( inputPtr->m_left_token->m_token_string ) ;
+          nowPtr = ReadFunction( inputPtr, now_function ) ;
+        } // if 如果他的type是FUNCTION 那就給他做function的處理 
+        else if ( type == SYMBOL ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP && nowPtr->m_can_read == false ) {
+            nowPtr = nowPtr->m_left ;
+          } // if
+        } // else if 如果今天是symbol 那我們要做的是把它symbol所指向的東西給接起來 
+      } // if
+      else {
+        throw invalid_argument( "unbol" ) ;
+      } // else 
+    } // else if 如果是symbol的話就要確認有沒有定義過 但這邊我們只管有沒有定義 不管它是甚麼 他是什麼是後面的工作
+    else if ( inputPtr->m_left_token->m_type == NIL ) {
+      nowPtr = new TreeNode( NIL ) ;
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 如果他什麼都不是 就直接接起來
+
+  } // else 如果他是token的話 先確認有沒有被定義過 如果有定義過 確定她是function還是symbol
+
+  // 進入cons第二次 這次是要直接找下一個的m_left
+  if ( time == 0 ) {
+    TreeNode* tempNode = ReadCons( inputPtr->m_right, time+1 ) ;
+    if ( tempNode != NULL ) {
+      if ( tempNode->m_type == LISP ) {
+        nowPtr->m_right = tempNode->m_left ;
+      } // if
+      else {
+        nowPtr->m_right = NULL ;
+        nowPtr->m_right_token = tempNode->m_left_token ;
+      } // else 
+    } // if
+  } // if
+  else if ( time == 1 ) {
+    if ( nowPtr != NULL )
+      nowPtr->m_right = ReadCons( inputPtr, time+1 ) ;
+  } // else if
+
+  nowPtr->m_can_read = true ;
+  return nowPtr ;
+
+} // ReadCons()
+
+TreeNode* ReadList( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr = NULL ;
+  if ( inputPtr == NULL ) {
+    return NULL ;
+  } // if
+
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+    if ( nowPtr == NULL ) {
+      nowPtr = new TreeNode( NIL ) ;
+    } // if 如果沒東西 要自動補給他 不然會出問題
+    // 如果他是lisp 要指向他所回傳的pointer
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      Function quote = GetFromFunction( inputPtr->m_left_token->m_token_string ) ;
+      nowPtr = ReadFunction( inputPtr, quote ) ;
+      inputPtr = inputPtr->m_right ;
+    } // if 如果他是quote 那我們就直接指向他所回傳的東西
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) { // 在這邊如果沒有定義過 他會直接拋出error
+        int type = GetDefinedType( inputPtr->m_left_token->m_token_string ) ;
+        if ( type == FUNCTION ) {
+          Function now_function = GetFromFunction( inputPtr->m_left_token->m_token_string ) ;
+          nowPtr = ReadFunction( inputPtr, now_function ) ;
+        } // if 如果他的type是FUNCTION 那就給他做function的處理 
+        else if ( type == SYMBOL ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP && nowPtr->m_can_read == false ) {
+            nowPtr = nowPtr->m_left ; 
+          } // if
+        } // else if 如果今天是symbol 那我們要做的是把它symbol所指向的東西給接起來 
+      } // if
+    } // else if 如果是symbol的話就要確認有沒有定義過 但這邊我們只管有沒有定義 不管它是甚麼 他是什麼是後面的工作
+    else if ( inputPtr->m_left_token->m_type == NIL ) {
+      nowPtr = new TreeNode( NIL ) ;
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 如果他什麼都不是 就直接接起來
+
+  } // else 如果他是token的話 先確認有沒有被定義過 如果有定義過 確定她是function還是symbol
+
+  if ( nowPtr != NULL )
+    nowPtr->m_right = ReadList( inputPtr->m_right ) ;
+  nowPtr->m_can_read = true ;
+  return nowPtr ;
+
+} // ReadList()
+
+TreeNode* ReadDefine( TreeNode* inputPtr ) {
+
+  // 遇到define會有2種狀況 後面是lisp或著是後面是token 後面是token的情況下又有三種狀況
+  // symbol notsymbol quote 這三種 要分別處理
+  // 基本上 如果有遇到define 要做出一個struct名為object 並且把他放進名為g_def_object的vector裡面
+  if ( inputPtr->m_type == TOKEN ) {
+    if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      string object_name = inputPtr->m_left_token->m_token_string ;
+      Object temp_object ;
+      temp_object.object_name = object_name ;
+      temp_object.object_ptr = new TreeNode( false ) ;
+      inputPtr = inputPtr->m_right ; // 往下一個看
+      if ( inputPtr->m_type == LISP ) {
+        temp_object.object_ptr->m_type = LISP ;
+        temp_object.object_ptr->m_left = ReadList( inputPtr ) ;
+      } // if 這邊代表他是一個LISP 那就用LISP的標準去看他
+      else if ( inputPtr->m_type == TOKEN ) {
+        if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+          if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+            int type = GetDefinedType( inputPtr->m_left_token->m_token_string ) ;
+            if ( type == SYMBOL ) {
+              temp_object.object_ptr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+            } // if 
+          } // if
+          else {
+            throw invalid_argument( "unbound symbol" ) ;
+          } // else
+        } // if 如果他是symbol 要先確定他有沒有被定義過 如果沒被定義要拋出錯誤 如果有定義了直接連上去就好
+        else if ( inputPtr->m_left_token->m_type == QUOTE ) {
+          temp_object.object_ptr->m_type = LISP ;
+          temp_object.object_ptr->m_left = ReadQuote( inputPtr ) ;
+          inputPtr = inputPtr->m_right ;
+        } // else if 
+        else {
+          temp_object.object_ptr = CreateToken( *inputPtr->m_left_token ) ;
+        } // else 
+      } // else if
+      else {
+        ErrorSymBol() ;
+      } // else
+
+
+      DefineObject( temp_object ) ;
+      cout << temp_object.object_name << " defined" << endl ;
+      throw invalid_argument( "OK" ) ;
+    } // if 要先確定第一項是symbol 才可以繼續下去
+  } // if
+
+  return NULL ;
+} // ReadDefine()
+
+TreeNode* ReadCleanEnviroment() {
+  vector<Object> empty_object ;
+  g_def_object = empty_object ;
+  cout << "environment cleaned" << endl ;
+  throw invalid_argument( "OK" ) ;
+} // ReadCleanEnviroment()
+
+TreeNode* ReadCar( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr = CopyObject( ReadQuote( inputPtr ) ) ;
+      inputPtr = inputPtr->m_right ;
+      nowPtr->m_left->m_right = NULL ;
+      return nowPtr->m_left ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP && nowPtr->m_can_read == false ) {
+          nowPtr = nowPtr->m_left ;
+        } // if
+      } // if
+      else throw invalid_argument( "unbound symbol" ) ;
+    } // else if
+    else {
+      ErrorSymBol() ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_type == LISP ) {
+    if ( nowPtr->m_right == NULL ) nowPtr = nowPtr->m_left ;
+    nowPtr->m_right = NULL ;
+    nowPtr->m_can_read = false ;
+    if ( nowPtr->m_type == TOKEN && nowPtr->m_left_token->m_type == SYMBOL ) {
+      nowPtr = Get_DefObject_Ptr( nowPtr->m_left_token->m_token_string ) ;
+    } // if
+
+    return nowPtr ;
+  } // if
+  else {
+    throw invalid_argument( "Type Error" ) ;
+  } // else 
+
+} // ReadCar()
+
+TreeNode* CheckToken( TreeNode* nowPtr ) {
+
+  if ( nowPtr->m_type == TOKEN && nowPtr->m_left_token->m_type == SYMBOL ) {
+    nowPtr = Get_DefObject_Ptr( nowPtr->m_left_token->m_token_string ) ;
+    return nowPtr ;
+  } // if
+
+  return nowPtr ;
+} // CheckToken()
+
+TreeNode* ReadCdr( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr = CopyObject( ReadQuote( inputPtr ) ) ;
+      if ( nowPtr->m_type == LISP ) {
+        nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_right_token ) {
+          nowPtr->m_left_token = nowPtr->m_right_token ;
+          nowPtr->m_left = NULL ;
+          nowPtr->m_right = NULL ;
+          nowPtr->m_right_token = NULL ;
+          return nowPtr ;
+        } // if
+        else {
+          nowPtr = nowPtr->m_right ;
+          if ( nowPtr && nowPtr->m_left_token && nowPtr->m_left_token->m_type == DOT ) {
+            nowPtr = nowPtr->m_right ;
+            return nowPtr ;
+          } // if
+          
+          TreeNode* temp_Tree = new TreeNode( LISP ) ;
+          temp_Tree->m_can_read = true ;
+          temp_Tree->m_left = nowPtr ;
+          return temp_Tree ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Type Error" ) ;
+      } // else
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP && nowPtr->m_can_read == false ) {
+          nowPtr = nowPtr->m_left ;
+        } // if
+      } // if
+      else throw invalid_argument( "unbound symbol" ) ;
+    } // else if
+    else {
+      ErrorSymBol() ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_type == LISP ) {
+    if ( nowPtr->m_right == NULL ) nowPtr = nowPtr->m_left ;
+    if ( nowPtr->m_right_token ) {
+      Token* temp = nowPtr->m_right_token ;
+      nowPtr = new TreeNode( TOKEN ) ;
+      nowPtr->m_can_read = true ;
+      nowPtr->m_left_token = temp ;
+      return nowPtr ;
+    } // if
+
+    if ( nowPtr->m_right == NULL ) return new TreeNode( NIL ) ;
+    if ( nowPtr->m_right != NULL ) nowPtr = nowPtr->m_right ;
+    if ( nowPtr->m_left_token != NULL && 
+         nowPtr->m_left_token->m_token_string == "." ) {
+      nowPtr = nowPtr->m_right ;
+      if ( not_experance )
+        return nowPtr ;
+      return CheckToken( nowPtr ) ;
+    } // if
+    else {
+      if ( nowPtr->m_right_token != NULL ) {
+        nowPtr->m_left_token = nowPtr->m_right_token ;
+        nowPtr->m_right_token = NULL ;
+        nowPtr->m_left = NULL ;
+        nowPtr->m_right = NULL ;
+        nowPtr->m_type = TOKEN ;
+        if ( not_experance )
+          return nowPtr ;
+        return CheckToken( nowPtr ) ;
+      } // if
+
+    } // else
+    
+    if ( nowPtr->m_type == TOKEN && nowPtr->m_left_token->m_type == SYMBOL ) {
+      if ( not_experance )
+        return nowPtr ;
+      nowPtr = Get_DefObject_Ptr( nowPtr->m_left_token->m_token_string ) ;
+      return nowPtr ;
+    } // if
+
+    TreeNode* tempNode = new TreeNode( false ) ;
+    tempNode->m_type = LISP ;
+    tempNode->m_left = nowPtr ;
+    nowPtr = tempNode ;   
+    return nowPtr ;
+  } // if
+  else {
+    throw invalid_argument( "Type Error" ) ;
+  } // else 
+
+} // ReadCdr()
+
+TreeNode* ReadATOM( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_type == TOKEN ) {
+    if ( ! nowPtr->m_right_token ) {
+      if (  IsAtomType( nowPtr->m_left_token->m_type ) ) 
+        return new TreeNode( T ) ;
+    } // if
+  } // if
+
+  return new TreeNode( NIL ) ;
+} // ReadATOM()
+
+TreeNode* ReadPair( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_type == LISP ) {
+    nowPtr = nowPtr->m_left ;
+    if ( nowPtr->m_left_token && IsAtomType( nowPtr->m_left_token->m_type ) ) {
+      if ( nowPtr->m_right_token && IsAtomType( nowPtr->m_right_token->m_type ) ) {
+        return new TreeNode( T ) ;
+      } // if
+      else {
+        if ( nowPtr->m_right ) {
+          nowPtr = nowPtr->m_right ;
+          if ( nowPtr->m_left_token && IsAtomType( nowPtr->m_left_token->m_type ) ) {
+            return new TreeNode( T ) ;
+          } // if
+          else if ( nowPtr->m_left_token && nowPtr->m_left_token->m_type == DOT ) {
+            nowPtr = nowPtr->m_right ;
+            if ( nowPtr->m_left_token && IsAtomType( nowPtr->m_left_token->m_type ) ) {
+              return new TreeNode( T ) ;
+            } // if
+          } // else if
+        } // if
+      } // else
+    } // if
+  } // if
+
+  return new TreeNode( NIL ) ;
+} // ReadATOM()
+
+TreeNode* ReadIsList( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_type == LISP ) {
+    nowPtr = nowPtr->m_left ;
+    for ( ; nowPtr ; nowPtr = nowPtr->m_right ) {
+      if ( nowPtr->m_type != LISP && ( nowPtr->m_right_token || ( 
+           nowPtr->m_left_token && ! IsAtomType( nowPtr->m_left_token->m_type ) ) ) )
+        return new TreeNode( NIL ) ;
+    } // for
+
+    return new TreeNode( T ) ;
+  } // if
+
+  return new TreeNode( NIL ) ;
+} // ReadIsList()
+
+TreeNode* ReadNULL( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( !nowPtr || nowPtr->m_type == NIL || nowPtr->IsNIL() || ( nowPtr->m_left_token && 
+       nowPtr->m_left_token->m_type == NIL ) )
+    return new TreeNode( T ) ;
+  return new TreeNode( NIL ) ;
+} // ReadNULL()
+
+TreeNode* ReadInteger( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_left_token && nowPtr->m_left_token->m_type == INT )
+    return new TreeNode( T ) ;
+  return new TreeNode( NIL ) ;
+} // ReadInteger()
+
+TreeNode* ReadReal( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_left_token && ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) )
+    return new TreeNode( T ) ;
+  return new TreeNode( NIL ) ;
+} // ReadReal()
+
+TreeNode* ReadString( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_left_token && nowPtr->m_left_token->m_type == STRING )
+    return new TreeNode( T ) ;
+  return new TreeNode( NIL ) ;
+} // ReadString()
+
+TreeNode* ReadBool( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( !nowPtr || nowPtr->IsNIL() || ( nowPtr->m_left_token && ( nowPtr->m_left_token->m_type == NIL ||
+       nowPtr->m_left_token->m_type == T ) ) )
+    return new TreeNode( T ) ;
+  return new TreeNode( NIL ) ;
+} // ReadBool()
+
+
+TreeNode* ReadSymBol( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr ;
+  bool not_experance = false ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else
+
+  if ( nowPtr->m_left_token && nowPtr->m_left_token->m_type == SYMBOL  )
+    return new TreeNode( T ) ;
+  return new TreeNode( NIL ) ;
+} // ReadBool()
+
+TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
+  if ( nowFunction.function_name == "'" || nowFunction.function_name == "quote" ) {
+    return ReadQuote( inputPtr ) ;
+  } // if
+  else if ( CheckNodeValidity( inputPtr ) ) { // 這裡如果沒找到function的話會跳出error
+    if ( nowFunction.function_name == "cons" ) {
+      TreeNode* nowPtr = new TreeNode( false ) ;
+      nowPtr->m_type = LISP ;
+      nowPtr->m_left = ReadCons( inputPtr->m_right, 0 ) ; // 先進入該死的function
+      return nowPtr ;
+    } // if
+    else if ( nowFunction.function_name == "list" ) {
+      TreeNode* nowPtr = new TreeNode( false ) ;
+      nowPtr->m_type = LISP ;
+      nowPtr->m_left = ReadList( inputPtr->m_right ) ;
+      return nowPtr ;
+    } // else if
+    else if ( nowFunction.function_name == "define" ) {
+      return ReadDefine( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "clean-environment" ) {
+      return ReadCleanEnviroment() ;
+    } // else if
+    else if ( nowFunction.function_name == "car" ) {
+      return ReadCar( inputPtr->m_right ) ; 
+    } // else if
+    else if ( nowFunction.function_name == "cdr" ) {
+      return ReadCdr( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "exit" ) {
+      ReadExit() ;
+    } // else if
+    else if ( nowFunction.function_name == "atom?" ) {
+      return ReadATOM( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "pair?" ) {
+      return ReadPair( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "list?" ) {
+      return ReadIsList( inputPtr->m_right ) ;
+    } // else
+    else if ( nowFunction.function_name == "null?"  ) {
+      return ReadNULL( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "integer?"  ) {
+      return ReadInteger( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "real?"  ) {
+      return ReadReal( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "number?"  ) {
+      return ReadReal( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "string?"  ) {
+      return ReadString( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "boolean?"  ) {
+      return ReadBool( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "symbol?" ) {
+      return ReadSymBol( inputPtr->m_right ) ;
+    } // else
+  } // if
+  else {
+    cout << "argument not match" << endl ;
+    throw ( g_ARGUMENTERROR ) ;
+    return NULL ;
+  } // else 
+
+  return NULL ;
+} // ReadFunction()
+
+TreeNode* ReadLeft( TreeNode* inputPtr ) {
+
+  if ( inputPtr->m_type == LISP ) {
+    return ReadLeft( inputPtr->m_left ) ;
+  } // if 如果他還是一個leftparn 那就要先下一個function所輸出的結果回傳出來 
+  else if ( inputPtr->m_type == TOKEN ) {
+    Function nowFunction ;
+    int type = 0 ;
+    if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ;
+    } // else if 如果他是symbol的話要先確定有沒有定義過 如果沒有定義過要直接拋出錯誤
+
+    nowFunction = GetFromFunction( inputPtr->m_left_token->m_token_string ) ; 
+    // 如果這邊沒有定義過 那會拋出一個error 自然就會被整個丟出去
+    // 由於left後面一定要接一個function 所以如果找不到function就代表這個東西不對了
+    return ReadFunction( inputPtr, nowFunction ) ; // 如果有定義過就可以進來 會根據function的名字以及他的argument做出相對應的動作
+  } // else if
+  else if ( ! inputPtr->m_left ) {
+    return new TreeNode( NIL ) ;
+  } // else if
+  else {
+    cout << "Type error please Check" << endl ;
+    throw ( "Type Error" ) ;
+  } // else
+
+} // ReadLeft()
+
+
+TreeNode* CheckFinal( TreeNode* inputPtr, bool right ) {
+
+  if ( ! inputPtr ) {
+    return NULL ;
+  } // if
+
+  if ( inputPtr->m_can_read && right == false && ! inputPtr->m_dont_exp ) {
+    if ( inputPtr->m_left != NULL && inputPtr->m_right == NULL && inputPtr->m_right_token == NULL ) {
+      inputPtr = inputPtr->m_left ;
+      inputPtr = CheckFinal( inputPtr, false ) ;
+    } // if
+  } // if
+
+
+  inputPtr->m_left = CheckFinal( inputPtr->m_left, false ) ;
+  inputPtr->m_right = CheckFinal( inputPtr->m_right, true ) ;
+  return inputPtr ;
+
+} // CheckFinal()
+
+// ------------------------------------------------------------更新-------------------------------------------
+
 // ------------------------------------------------------------NEW-------------------------------------------
-void Statement :: Exe_S_EXP( TreeNode* inputPtr, TreeNode* outputPtr ) {
+TreeNode* Statement :: Exe_S_EXP( TreeNode* inputPtr ) {
 /*
 這邊比較複雜 我寫多一點註解以免大家搞不懂這裡的構想 每次看到這裡都覺得寫這個的人是個天才
 我們在做這部分之前就會先建好一個 tree了 但是這個樹只是一個初步的雛型 我們要先對他進行預處理
 最後我們要使用的是outputPtr那個pointer 由於他已經是指向記憶體位置 因此我們不用加"&"號
 */  
   if ( inputPtr->m_type == LISP ) {
-
+    return ReadLeft( inputPtr->m_left ) ; 
   }  // if 如果inputPtr指向的是一個LISP 那它代表的就是"("這東西 因此我們要進入ReadLEFT來確認他新的pointer 我給你的東西
      // 一樣是一個vector 那邊不會變 所以你可以放心地寫 不用怕
-  else if ( inputPtr->m_type == TOKEN ) {
-
+  else if ( inputPtr->m_type == QUOTE ) {
+    return ReadQuote( inputPtr->m_left ) ; 
   } // else if 在他是一個TOKEN的情況下 我們要先知道她有沒有被宣告過 有一個全域變數會專門處理這件事情 我很高機率會把這東西
     // 名字設定為 g_def_object ( 取名由來為: 全域的 定義的 物件 ( 這裡處理的其實不算是變數 比較像是物件 ) ),
     // 那這邊應該會要有一個funciton 是一個 Get_DefObject_Ptr( 取名由來: 得到 定義的 物件的 指向 ) 他回傳的會是一個TreeNode *
     // 所以說 我們還會有一個struct 名為 Object 他裡面會放兩種東西 一個是該物件的名稱 我們用string 
     // 一個是他所指向的記憶體位置TreeNode * 那這樣這個Get_DefObject_ptr 就可以工作了 這樣就不用擔心 定義的部分該怎麼辦
     // 差不多在370行左右的地方
-  else{
+  else {
     cout << "Type error please Check" << endl ;
     throw ( "TYPE Error" ) ;
   } // else 這邊正常來說是不可能進入的 如果進入 一定是前面有寫錯 要回去看!
+
+  return NULL ;
 } // Statement::Exe_S_EXP()
 // ------------------------------------------------------------NEW-------------------------------------------
 
 
 void Statement :: PrintStatementResult( vector<Token> &wait_token_vector ) {
 
-  bool enter = false ;  
-  if (  wait_token_vector.front().m_type == LEFT_PAREN ) {
+  bool enter = false ;
+  bool quote = false ;  
+  TreeNode* outputPtr = NULL ;
+  if (  wait_token_vector.front().m_type == LEFT_PAREN || wait_token_vector.front().m_type == QUOTE ) {
     m_nowTreePtr->m_left = new TreeNode() ;
     m_nowTreePtr->m_left_ok = false ;
     m_nowTreePtr->m_type = LISP ;
+    int type = wait_token_vector.front().m_type ;
     wait_token_vector.erase( wait_token_vector.begin() ) ;
-    CreateLisp( m_nowTreePtr->m_left, wait_token_vector, false ) ;
-    /*
-    這邊要開始對statement做計算
-    */
+    if ( type == LEFT_PAREN ) {
+      CreateLisp( m_nowTreePtr->m_left, wait_token_vector, false ) ;
+      outputPtr = Exe_S_EXP( m_nowTreePtr ) ;
+    } // if 
+    else if ( type == QUOTE ) {
+      if ( wait_token_vector.front().m_type == LEFT_PAREN ) {
+        CreateLisp( m_nowTreePtr->m_left, wait_token_vector, false ) ;
+        outputPtr = m_nowTreePtr->m_left ;
+      } // if
+      else {
+        outputPtr = CreateToken( wait_token_vector.front() ) ;
+        wait_token_vector.erase( wait_token_vector.begin() ) ;
+      } // else if
+
+      if ( outputPtr->m_left != NULL && outputPtr->m_left->IsNIL() ) {
+        outputPtr->m_left = NULL ;
+      } // if
+
+      quote = true ;
+    } // else if
   } // if
   else if ( wait_token_vector.size() == 1 ) {
-    Token* tempToken = new Token( wait_token_vector.front().m_token_string, 
-                                  wait_token_vector.front().m_colnum,
-                                  wait_token_vector.front().m_line,
-                                  wait_token_vector.front().m_type ) ;
-    m_nowTreePtr->AddLeft( tempToken ) ;
-    m_nowTreePtr->m_left_ok = false ;
-    m_nowTreePtr->m_type = TOKEN ;
+    if ( wait_token_vector.front().m_type == SYMBOL )
+      outputPtr = Get_DefObject_Ptr( wait_token_vector.front().m_token_string ) ;
+    else {
+      outputPtr = CreateToken( wait_token_vector.front() ) ;
+    } // else 
+
     wait_token_vector.erase( wait_token_vector.begin() ) ;
   } // else if
-  
-  PrintLisp( m_nowTreePtr, 0, enter ) ;  
+
+  if ( outputPtr ) {
+    outputPtr->m_can_read = false ;
+    if ( quote == false )
+      outputPtr = CheckFinal( outputPtr, true ) ;
+  } // if
+  else {
+    outputPtr = new TreeNode( NIL ) ;
+  } // else
+
+  PrintLisp( outputPtr, 0, enter ) ;  
 
 
 } // Statement::PrintStatementResult()
@@ -1563,10 +2605,12 @@ int main() {
   LoadPreDefFunction() ;
   char testNum[10] ;
   cin.getline( testNum, 10 ) ;
+  // if (  strcmp( testNum, "1" ) == 0 ) {
   GetTokenMachine getToken ;
   TokenClassCategory tokenclass ;
   Statement statement( getToken, tokenclass ) ;
   statement.PrintAllOfStatement() ;
+  // } // if
 
 
 } // main()
