@@ -876,7 +876,7 @@ float StringToFloat( string str ) {
     return roundf( f*1000 )/ 1000 ;
 } // StringToFloat()
 
-void ConvertString ( string s1, string s2, int &i1, int &i2, float &f1, float &f2, bool &b1, bool &b2 ) {
+void ConvertString ( string s1, string s2, int &i1, int &i2, double &f1, double &f2, bool &b1, bool &b2 ) {
   if ( s1.npos == s1.find( "." ) ) 
     b1 = true ;
 
@@ -898,7 +898,7 @@ string AddNum( string s1, string s2, int &type ) {
   double first_float = 0.0 ;
   double second_float = 0.0 ;
 
-  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
   if ( first_is_int && second_is_int ) { // both int
     type = INT ;
     int sum = first_int + second_int ;
@@ -922,7 +922,7 @@ string MinusNum( string s1, string s2, int &type ) {
   double first_float = 0.0 ;
   double second_float = 0.0 ;
 
-  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
     if ( first_is_int && second_is_int ) { // both int
       type = INT ;
       int sum = first_int - second_int ;
@@ -947,7 +947,7 @@ string MultiplyNum( string s1, string s2, int &type ) {
   double first_float = 0.0 ;
   double second_float = 0.0 ;
 
-  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
 
   if ( first_is_int && second_is_int ) { // both int
     type = INT ;
@@ -973,7 +973,7 @@ string DividedNum( string s1, string s2, int &type ) {
   double first_float = 0.0 ;
   double second_float = 0.0 ;
 
-  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+  ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
 
   if ( first_is_int && second_is_int ) { // both int
     type = INT ;
