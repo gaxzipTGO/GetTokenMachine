@@ -8,7 +8,7 @@
 # include <map>
 # include <stdio.h>
 # include <string.h>
-
+# include <cmath>
 //    // ***************************************************************************** //
 //    //                                                                               //
 //    //                               開始 project 2                                  //
@@ -60,6 +60,51 @@ enum G_Category {
   每個都有特定的意義
   如果遇到這些東西 就要確認他們的狀態了
 */
+
+float stringToFloat(const char* str) {
+    float result = 0.0;
+    bool negative = false;
+    int decimal = 0;
+    int i = 0;
+    
+    // Handle negative sign
+    if (str[0] == '-') {
+        negative = true;
+        i++;
+    }
+    
+    // Parse digits before decimal point
+    while (str[i] != '\0' && str[i] != '.') {
+        if (str[i] >= '0' && str[i] <= '9') {
+            result = result * 10 + (str[i] - '0');
+        }
+        i++;
+    }
+    
+    // Parse digits after decimal point
+    if (str[i] == '.') {
+        i++;
+        while (str[i] != '\0') {
+            if (str[i] >= '0' && str[i] <= '9') {
+                result = result * 10 + (str[i] - '0');
+                decimal++;
+            }
+            i++;
+        }
+    }
+    
+    // Convert result to float
+    for (int j = 0; j < decimal; j++) {
+        result /= 10;
+    }
+    
+    // Apply negative sign if necessary
+    if (negative) {
+        result = -result;
+    }
+    
+    return result;
+}
 
 void ErrorSymBol() {
   if ( 1 ) throw invalid_argument( "Type Error" ) ;
@@ -229,6 +274,24 @@ int GetArgument( string symbol ) {
   return 0;
 } // GetArgument()
 
+string ADDNum( string num1, string num2, int &type ) {
+
+
+
+} // ADDNum()
+
+string SUBNum( string num1, string num2, int &type ) {
+
+} // SUBNum()
+
+string MUXNum( string num1 ,string num2, int &type ) {
+
+} // MUXNum
+
+string DIVNum( string num1, string num2, int &type ) {
+
+} // DIVNum()
+
 class TreeNode {
   public:
   Token* m_left_token ;
@@ -368,8 +431,6 @@ bool IsAtomType( int type ) {
   } // else if
   else return false ;
 } // IsAtomType()
-
-
 
 void Function_CheckAtom( vector<Token> &input_token, vector<Token> &output_token ) {
 /*
@@ -683,7 +744,7 @@ class TokenClassCategory {
     return token ;
   } // DealWithOperater()
 
-  public: virtual string DealWithDot_Back( string token ) {
+  protected: virtual string DealWithDot_Back( string token ) {
     bool int_is = true ;
     for ( int i = 0 ; i < token.size() && int_is == true ; i ++ ) {
       if ( token.at( i ) == '.' ) {
@@ -944,7 +1005,6 @@ string DividedNum( string s1, string s2, int &type ) {
   } // else
 
 } // DividedNum() 
-
 
 class GetTokenMachine {
   protected: bool m_isFile ;
@@ -2339,6 +2399,206 @@ TreeNode* ReadSymBol( TreeNode* inputPtr ) {
   return new TreeNode( NIL ) ;
 } // ReadBool()
 
+TreeNode* ReadPlus( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          
+          sum_ptr->m_left_token->m_type = FLOAT ;
+          sum_ptr->m_left_token->m_token_string = ADDNum( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadPlus()
+
+TreeNode* ReadSUB( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          
+          sum_ptr->m_left_token->m_type = FLOAT ;
+          sum_ptr->m_left_token->m_token_string = SUBNum( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadSub()
+
+TreeNode* ReadMUX( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          
+          sum_ptr->m_left_token->m_type = FLOAT ;
+          sum_ptr->m_left_token->m_token_string = ADDMUX( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadMUX()
+
+TreeNode* ReadDIV( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          
+          sum_ptr->m_left_token->m_type = FLOAT ;
+          sum_ptr->m_left_token->m_token_string = ADDDIV( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadDIV()
+
 TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
   if ( nowFunction.function_name == "'" || nowFunction.function_name == "quote" ) {
     return ReadQuote( inputPtr ) ;
@@ -2400,7 +2660,19 @@ TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
     } // else if
     else if ( nowFunction.function_name == "symbol?" ) {
       return ReadSymBol( inputPtr->m_right ) ;
-    } // else
+    } // else if
+    else if ( nowFunction.function_name == "+" ) {
+      return ReadPlus( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "-" ) {
+      return ReadSUB( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "*" ) {
+      return ReadMUX( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "/" ) {
+      return ReadDIV( inputPtr->m_right ) ;
+    } // else if
   } // if
   else {
     cout << "argument not match" << endl ;
