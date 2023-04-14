@@ -8,7 +8,8 @@
 # include <map>
 # include <stdio.h>
 # include <string.h>
-
+# include <cmath>
+# include <sstream>
 //    // ***************************************************************************** //
 //    //                                                                               //
 //    //                               開始 project 2                                  //
@@ -60,6 +61,51 @@ enum G_Category {
   每個都有特定的意義
   如果遇到這些東西 就要確認他們的狀態了
 */
+
+float stringToFloat(const char* str) {
+    float result = 0.0;
+    bool negative = false;
+    int decimal = 0;
+    int i = 0;
+    
+    // Handle negative sign
+    if (str[0] == '-') {
+        negative = true;
+        i++;
+    }
+    
+    // Parse digits before decimal point
+    while (str[i] != '\0' && str[i] != '.') {
+        if (str[i] >= '0' && str[i] <= '9') {
+            result = result * 10 + (str[i] - '0');
+        }
+        i++;
+    }
+    
+    // Parse digits after decimal point
+    if (str[i] == '.') {
+        i++;
+        while (str[i] != '\0') {
+            if (str[i] >= '0' && str[i] <= '9') {
+                result = result * 10 + (str[i] - '0');
+                decimal++;
+            }
+            i++;
+        }
+    }
+    
+    // Convert result to float
+    for (int j = 0; j < decimal; j++) {
+        result /= 10;
+    }
+    
+    // Apply negative sign if necessary
+    if (negative) {
+        result = -result;
+    }
+    
+    return result;
+}
 
 void ErrorSymBol() {
   if ( 1 ) throw invalid_argument( "Type Error" ) ;
@@ -681,7 +727,7 @@ class TokenClassCategory {
     return token ;
   } // DealWithOperater()
 
-  protected: virtual string DealWithDot_Back( string token ) {
+  public: virtual string DealWithDot_Back( string token ) {
     bool int_is = true ;
     for ( int i = 0 ; i < token.size() && int_is == true ; i ++ ) {
       if ( token.at( i ) == '.' ) {
@@ -822,6 +868,127 @@ class TokenClassCategory {
    
 } 
 g_classCategory ;
+
+float StringToFloat( string str ) {
+    float f;
+    stringstream ss( str ) ;
+    ss >> f;
+    return roundf( f*1000 )/ 1000 ;
+} // StringToFloat()
+
+void ConvertString ( string s1, string s2, int &i1, int &i2, float &f1, float &f2, bool &b1, bool &b2 ) {
+  if ( s1.npos == s1.find( "." ) ) 
+    b1 = true ;
+
+  if ( s2.npos == s2.find( "." ) ) 
+    b2 = true ;
+
+  f1 = StringToFloat( s1 ) ;
+  f2 = StringToFloat( s2 ) ;
+  i1 = atoi( s1.c_str() ) ;
+  i2 = atoi( s2.c_str() ) ;
+} // ConvertString()
+
+string AddNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  double first_float = 0.0 ;
+  double second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+  if ( first_is_int && second_is_int ) { // both int
+    type = INT ;
+    int sum = first_int + second_int ;
+    string temp = to_string(sum) ;
+    return temp ;
+  } // if both int
+  else {
+    type = FLOAT ;
+    double sum = first_float + second_float ;
+    string temp = to_string(sum) ;
+    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+  } // else
+} // AddNum 
+
+string MinusNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  double first_float = 0.0 ;
+  double second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+    if ( first_is_int && second_is_int ) { // both int
+      type = INT ;
+      int sum = first_int - second_int ;
+      string temp = to_string(sum) ;
+      return temp ;
+    } // if both int
+    else {
+      type = FLOAT ;
+      double sum = first_float - second_float ;
+      string temp = to_string(sum) ;
+      return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+    } // else
+
+} // MinusNum() 
+
+string MultiplyNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  double first_float = 0.0 ;
+  double second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+
+  if ( first_is_int && second_is_int ) { // both int
+    type = INT ;
+    int sum = first_int * second_int ;
+    string temp = to_string(sum) ;
+    return temp ;
+  } // if both int
+  else {
+    type = FLOAT ;
+    double sum = first_float * second_float ;
+    string temp = to_string(sum) ;
+    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+  } // else
+
+} // MultiplyNum() 
+
+string DividedNum( string s1, string s2, int &type ) {
+  TokenClassCategory TokenClass ;
+  bool first_is_int = false ;
+  bool second_is_int = false ;
+  int first_int = 0 ;
+  int second_int = 0 ;
+  double first_float = 0.0 ;
+  double second_float = 0.0 ;
+
+  ConvertString( s1, s2, first_int, second_int, first_double, second_float, first_is_int, second_is_int ) ;
+
+  if ( first_is_int && second_is_int ) { // both int
+    type = INT ;
+    int sum = first_int / second_int ;
+    string temp = to_string(sum) ;
+    return temp ;
+  } // if both int
+  else {
+    type = FLOAT ;
+    double sum = first_float / second_float ;
+    string temp = to_string(sum) ;
+    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+  } // else
+
+} // DividedNum() 
 
 class GetTokenMachine {
   protected: bool m_isFile ;
@@ -2216,6 +2383,201 @@ TreeNode* ReadSymBol( TreeNode* inputPtr ) {
   return new TreeNode( NIL ) ;
 } // ReadBool()
 
+TreeNode* ReadPlus( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          
+          sum_ptr->m_left_token->m_token_string = AddNum( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadPlus()
+
+TreeNode* ReadSUB( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          sum_ptr->m_left_token->m_token_string = MinusNum( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadSub()
+
+TreeNode* ReadMUX( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          
+          sum_ptr->m_left_token->m_token_string = MultiplyNum( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadMUX()
+
+TreeNode* ReadDIV( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  for ( ; inputPtr ; inputPtr->m_right ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+
+      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+          
+          sum_ptr->m_left_token->m_token_string = DividedNum( token_change.ChangeToken( 
+                                                          sum_ptr->m_left_token->m_token_string ),
+                                                          token_change.ChangeToken( 
+                                                          nowPtr->m_left_token->m_token_string ),
+                                                          sum_ptr->m_left_token->m_type ) ; 
+                                                          // 要用他已經changeToken的來做運算
+        } // if
+        else {
+          throw invalid_argument( "Error Type" ) ;
+        } // else
+      } // if
+      else {
+        throw invalid_argument( "Error Type" ) ;
+      } // else
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadDIV()
+
 TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
   if ( nowFunction.function_name == "'" || nowFunction.function_name == "quote" ) {
     return ReadQuote( inputPtr ) ;
@@ -2277,7 +2639,19 @@ TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
     } // else if
     else if ( nowFunction.function_name == "symbol?" ) {
       return ReadSymBol( inputPtr->m_right ) ;
-    } // else
+    } // else if
+    else if ( nowFunction.function_name == "+" ) {
+      return ReadPlus( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "-" ) {
+      return ReadSUB( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "*" ) {
+      return ReadMUX( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "/" ) {
+      return ReadDIV( inputPtr->m_right ) ;
+    } // else if
   } // if
   else {
     cout << "argument not match" << endl ;
