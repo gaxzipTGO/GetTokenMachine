@@ -276,6 +276,7 @@ class TreeNode {
     m_right_token = NULL ;
     m_left_ok = true ;
     m_can_read = dontread ;
+    m_dont_exp = false ;
   } // TreeNode()
 
   TreeNode( int type ) {
@@ -284,6 +285,7 @@ class TreeNode {
     m_right = NULL ;
     m_left_token = NULL ;
     m_right_token = NULL ;
+    m_dont_exp = false ;
     if ( type == T ) {
       m_type = TOKEN ;
       m_left_token = new Token( "#t", 0, 0, T ) ;
@@ -548,6 +550,7 @@ TreeNode* CopyObject( TreeNode* inputPtr ) {
     copy_ptr->m_can_read = inputPtr->m_can_read ;
     copy_ptr->m_type = inputPtr->m_type ;
     copy_ptr->m_right_type = inputPtr->m_right_type ;
+    copy_ptr->m_dont_exp = inputPtr->m_dont_exp ;
 
     copy_ptr->m_left = CopyObject( inputPtr->m_left ) ;
     copy_ptr->m_right = CopyObject( inputPtr->m_right ) ;
@@ -1989,7 +1992,7 @@ TreeNode* ReadDefine( TreeNode* inputPtr ) {
         } // if 如果他是symbol 要先確定他有沒有被定義過 如果沒被定義要拋出錯誤 如果有定義了直接連上去就好
         else if ( inputPtr->m_left_token->m_type == QUOTE ) {
           temp_object.object_ptr->m_type = LISP ;
-          temp_object.object_ptr->m_left = ReadQuote( inputPtr ) ;
+          temp_object.object_ptr = ReadQuote( inputPtr ) ;
           inputPtr = inputPtr->m_right ;
         } // else if 
         else {
@@ -3142,7 +3145,9 @@ TreeNode* CheckFinal( TreeNode* inputPtr, bool right ) {
       inputPtr = CheckFinal( inputPtr, false ) ;
     } // if
   } // if
-
+  if ( inputPtr->m_dont_exp ) {
+    return inputPtr ;
+  } // if
 
   inputPtr->m_left = CheckFinal( inputPtr->m_left, false ) ;
   inputPtr->m_right = CheckFinal( inputPtr->m_right, true ) ;
