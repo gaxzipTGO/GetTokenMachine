@@ -398,7 +398,7 @@ bool CompareTwoTokenNode( Token* token1, Token* token2 ) {
 
   return false ;
 
-} // ConpareTwoTokenNode()
+} // CompareTwoTokenNode()
 
 bool CompareTwoTreeNode( TreeNode* inputPtr_1, TreeNode* inputPtr_2 ) {
 
@@ -408,9 +408,9 @@ bool CompareTwoTreeNode( TreeNode* inputPtr_1, TreeNode* inputPtr_2 ) {
 
   if ( inputPtr_1 && inputPtr_2 && ( inputPtr_1->m_type == inputPtr_2->m_type ) ) {
     if ( CompareTwoTokenNode( inputPtr_1->m_left_token, inputPtr_2->m_left_token ) &&
-          CompareTwoTokenNode( inputPtr_1->m_right_token, inputPtr_2->m_right_token ) && 
-          CompareTwoTreeNode( inputPtr_1->m_left, inputPtr_2->m_left ) && 
-          CompareTwoTreeNode( inputPtr_1->m_right, inputPtr_2->m_right ) ) {
+         CompareTwoTokenNode( inputPtr_1->m_right_token, inputPtr_2->m_right_token ) && 
+         CompareTwoTreeNode( inputPtr_1->m_left, inputPtr_2->m_left ) && 
+         CompareTwoTreeNode( inputPtr_1->m_right, inputPtr_2->m_right ) ) {
       return true ;
     } // if
   } // if
@@ -418,7 +418,8 @@ bool CompareTwoTreeNode( TreeNode* inputPtr_1, TreeNode* inputPtr_2 ) {
     return false ;
   } // else
 
-} // CompareTwoNode()
+  return false ;
+} // CompareTwoTreeNode()
 
 bool CheckRightNodeCount( TreeNode* now_TreePtr, int argument, const string& operater ) {
   int right_node_count = CountRightNodes( now_TreePtr );
@@ -584,7 +585,8 @@ TreeNode* Get_RealObject_Ptr( string object_name ) {
     } // if
   } // for
 
-} // GetRealObject_Ptr()
+  throw invalid_argument( "no define" ) ;
+} // Get_RealObject_Ptr()
 
 void DefineObject( Object object ) {
 
@@ -2220,7 +2222,7 @@ TreeNode* ReadPair( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2268,7 +2270,7 @@ TreeNode* ReadIsList( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2305,7 +2307,7 @@ TreeNode* ReadNULL( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2333,7 +2335,7 @@ TreeNode* ReadInteger( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2360,7 +2362,7 @@ TreeNode* ReadReal( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2388,7 +2390,7 @@ TreeNode* ReadString( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2415,7 +2417,7 @@ TreeNode* ReadBool( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2445,7 +2447,7 @@ TreeNode* ReadSymBol( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2477,7 +2479,7 @@ TreeNode* ReadPlus( TreeNode* inputPtr ) {
       else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
         if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+          if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
         } // if
       } // else if
       else {
@@ -2527,7 +2529,7 @@ TreeNode* ReadSUB( TreeNode* inputPtr ) {
       else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
         if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+          if ( nowPtr->m_type == LISP && !nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
         } // if
       } // else if
       else {
@@ -2577,7 +2579,7 @@ TreeNode* ReadMUX( TreeNode* inputPtr ) {
       else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
         if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+          if ( nowPtr->m_type == LISP && ! nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
         } // if
       } // else if
       else {
@@ -2627,7 +2629,7 @@ TreeNode* ReadDIV( TreeNode* inputPtr ) {
       else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
         if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+          if ( nowPtr->m_type == LISP && ! nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
         } // if
       } // else if
       else {
@@ -2671,7 +2673,7 @@ TreeNode* ReadNOT( TreeNode* inputPtr ) {
     else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
       if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
         nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        if ( nowPtr->m_type == LISP && ! nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
       } // if
     } // else if
     else {
@@ -2707,7 +2709,7 @@ TreeNode* ReadOperator( TreeNode* inputPtr, string op ) {
       else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
         if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+          if ( nowPtr->m_type == LISP && ! nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
         } // if
       } // else if
       else {
@@ -2761,7 +2763,7 @@ TreeNode* ReadStringAppend( TreeNode* inputPtr ) {
       else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
         if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+          if ( nowPtr->m_type == LISP && ! nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
         } // if
       } // else if
       else {
@@ -2812,7 +2814,7 @@ TreeNode* ReadStringCompare( TreeNode* inputPtr, string op ) {
       else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
         if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
-          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+          if ( nowPtr->m_type == LISP && ! nowPtr->m_can_read ) nowPtr = nowPtr->m_left ;
         } // if
       } // else if
       else {
@@ -3145,6 +3147,7 @@ TreeNode* CheckFinal( TreeNode* inputPtr, bool right ) {
       inputPtr = CheckFinal( inputPtr, false ) ;
     } // if
   } // if
+
   if ( inputPtr->m_dont_exp ) {
     return inputPtr ;
   } // if
