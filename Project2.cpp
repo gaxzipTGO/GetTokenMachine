@@ -10,6 +10,7 @@
 # include <string.h>
 # include <cmath>
 # include <sstream>
+# include <cstdlib>
 //    // ***************************************************************************** //
 //    //                                                                               //
 //    //                               開始 project 2                                  //
@@ -62,50 +63,17 @@ enum G_Category {
   如果遇到這些東西 就要確認他們的狀態了
 */
 
-float stringToFloat(const char* str) {
-    float result = 0.0;
-    bool negative = false;
-    int decimal = 0;
-    int i = 0;
-    
-    // Handle negative sign
-    if (str[0] == '-') {
-        negative = true;
-        i++;
-    }
-    
-    // Parse digits before decimal point
-    while (str[i] != '\0' && str[i] != '.') {
-        if (str[i] >= '0' && str[i] <= '9') {
-            result = result * 10 + (str[i] - '0');
-        }
-        i++;
-    }
-    
-    // Parse digits after decimal point
-    if (str[i] == '.') {
-        i++;
-        while (str[i] != '\0') {
-            if (str[i] >= '0' && str[i] <= '9') {
-                result = result * 10 + (str[i] - '0');
-                decimal++;
-            }
-            i++;
-        }
-    }
-    
-    // Convert result to float
-    for (int j = 0; j < decimal; j++) {
-        result /= 10;
-    }
-    
-    // Apply negative sign if necessary
-    if (negative) {
-        result = -result;
-    }
-    
-    return result;
-}
+string To_string( int value ) {
+  stringstream ss ;
+  ss << value ;
+  return ss.str() ;
+} // To_string()
+
+string To_string( double value ) {
+  stringstream ss ;
+  ss << value ;
+  return ss.str() ;
+} // To_string()
 
 void ErrorSymBol() {
   if ( 1 ) throw invalid_argument( "Type Error" ) ;
@@ -319,7 +287,7 @@ class TreeNode {
     if ( type == T ) {
       m_type = TOKEN ;
       m_left_token = new Token( "#t", 0, 0, T ) ;
-    } // 
+    } // if
   } // TreeNode()
 
   void AddLeft( Token* token ) {
@@ -368,6 +336,87 @@ int CountRightNodes( TreeNode* root ) {
   count += CountRightNodes( root->m_right ) ;
   return count ;
 } // CountRightNodes()
+
+bool ComPare( string str1, string str2, string op ) {
+  double num1, num2 ;
+  stringstream ss1( str1 ) ;
+  ss1 >> num1 ;
+  stringstream ss2( str2 ) ;
+  ss2 >> num2 ;
+
+  if ( op == "==" ) {
+    return num1 == num2 ;
+  } // if 
+  else if ( op == "!=" ) {
+    return num1 != num2 ;
+  } // else if
+  else if ( op == "<" ) {
+    return num1 < num2 ;
+  } // else if
+  else if ( op == "<=" ) {
+    return num1 <= num2 ;
+  } // else if
+  else if ( op == ">" ) {
+    return num1 > num2 ;
+  } // else if
+  else if ( op == ">=" ) {
+    return num1 >= num2 ;
+  } // else if
+  else {
+    cout << "Invalid operator!" << endl ;
+    return false ;
+  } // else 
+} // ComPare()
+
+bool ComPareString( string str1, string str2, string op ) {
+  int result = strcmp( str1.c_str(), str2.c_str() ) ;
+  if ( op == "string=?" ) {
+    return result == 0 ;
+  } // if 
+  else if ( op == "string>?" ) {
+    return result > 0 ;
+  } // else if
+  else if ( op == "string<?" ) {
+    return result < 0 ;
+  } // else if
+  else {
+    cout << "Invalid operator!" << endl ;
+    return false ;
+  } // else 
+} // ComPareString()
+
+bool CompareTwoTokenNode( Token* token1, Token* token2 ) {
+
+  if ( token1 && token2 && token1->m_token_string == token2->m_token_string ) {
+    return true ;
+  } // if
+  else if ( token1 == token2 ) {
+    return true ;
+  } // else if
+
+  return false ;
+
+} // ConpareTwoTokenNode()
+
+bool CompareTwoTreeNode( TreeNode* inputPtr_1, TreeNode* inputPtr_2 ) {
+
+  if ( ! inputPtr_1 && ! inputPtr_2 ) {
+    return true ;
+  } // if
+
+  if ( inputPtr_1 && inputPtr_2 && ( inputPtr_1->m_type == inputPtr_2->m_type ) ) {
+    if ( CompareTwoTokenNode( inputPtr_1->m_left_token, inputPtr_2->m_left_token ) &&
+          CompareTwoTokenNode( inputPtr_1->m_right_token, inputPtr_2->m_right_token ) && 
+          CompareTwoTreeNode( inputPtr_1->m_left, inputPtr_2->m_left ) && 
+          CompareTwoTreeNode( inputPtr_1->m_right, inputPtr_2->m_right ) ) {
+      return true ;
+    } // if
+  } // if
+  else {
+    return false ;
+  } // else
+
+} // CompareTwoNode()
 
 bool CheckRightNodeCount( TreeNode* now_TreePtr, int argument, const string& operater ) {
   int right_node_count = CountRightNodes( now_TreePtr );
@@ -521,6 +570,18 @@ TreeNode* Get_DefObject_Ptr( string object_name ) {
   throw invalid_argument( "Not Define" ) ;
 
 } // Get_DefObject_Ptr()
+
+TreeNode* Get_RealObject_Ptr( string object_name ) {
+
+
+  for ( vector<Object>::iterator it = g_def_object.begin() ; 
+        it != g_def_object.end() ; ++it ) {
+    if ( it->object_name == object_name ) {
+      return it->object_ptr ;
+    } // if
+  } // for
+
+} // GetRealObject_Ptr()
 
 void DefineObject( Object object ) {
 
@@ -869,14 +930,14 @@ class TokenClassCategory {
 } 
 g_classCategory ;
 
-float StringToFloat( string str ) {
-    float f;
-    stringstream ss( str ) ;
-    ss >> f;
-    return roundf( f*1000 )/ 1000 ;
+double StringToFloat( string str ) {
+  double f ;
+  stringstream ss( str ) ;
+  ss >> f ;
+  return f ;
 } // StringToFloat()
 
-void ConvertString ( string s1, string s2, int &i1, int &i2, double &f1, double &f2, bool &b1, bool &b2 ) {
+void ConvertString( string s1, string s2, int &i1, int &i2, double &f1, double &f2, bool &b1, bool &b2 ) {
   if ( s1.npos == s1.find( "." ) ) 
     b1 = true ;
 
@@ -890,7 +951,7 @@ void ConvertString ( string s1, string s2, int &i1, int &i2, double &f1, double 
 } // ConvertString()
 
 string AddNum( string s1, string s2, int &type ) {
-  TokenClassCategory TokenClass ;
+  TokenClassCategory tokenClass ;
   bool first_is_int = false ;
   bool second_is_int = false ;
   int first_int = 0 ;
@@ -902,19 +963,21 @@ string AddNum( string s1, string s2, int &type ) {
   if ( first_is_int && second_is_int ) { // both int
     type = INT ;
     int sum = first_int + second_int ;
-    string temp = to_string(sum) ;
+    string temp = To_string( sum ) ;
     return temp ;
   } // if both int
   else {
     type = FLOAT ;
     double sum = first_float + second_float ;
-    string temp = to_string(sum) ;
-    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+    string temp = To_string( sum ) ;
+    if ( tokenClass.GetThisTokenType( temp ) == INT )
+      temp = temp + string( ".", 1 ) ;
+    return tokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
   } // else
-} // AddNum 
+} // AddNum() 
 
 string MinusNum( string s1, string s2, int &type ) {
-  TokenClassCategory TokenClass ;
+  TokenClassCategory tokenClass ;
   bool first_is_int = false ;
   bool second_is_int = false ;
   int first_int = 0 ;
@@ -923,23 +986,25 @@ string MinusNum( string s1, string s2, int &type ) {
   double second_float = 0.0 ;
 
   ConvertString( s1, s2, first_int, second_int, first_float, second_float, first_is_int, second_is_int ) ;
-    if ( first_is_int && second_is_int ) { // both int
-      type = INT ;
-      int sum = first_int - second_int ;
-      string temp = to_string(sum) ;
-      return temp ;
-    } // if both int
-    else {
-      type = FLOAT ;
-      double sum = first_float - second_float ;
-      string temp = to_string(sum) ;
-      return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
-    } // else
+  if ( first_is_int && second_is_int ) { // both int
+    type = INT ;
+    int sum = first_int - second_int ;
+    string temp = To_string( sum ) ;
+    return temp ;
+  } // if both int
+  else {
+    type = FLOAT ;
+    double sum = first_float - second_float ;
+    string temp = To_string( sum ) ;
+    if ( tokenClass.GetThisTokenType( temp ) == INT )
+      temp = temp + string( ".", 1 ) ;
+    return tokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+  } // else
 
 } // MinusNum() 
 
 string MultiplyNum( string s1, string s2, int &type ) {
-  TokenClassCategory TokenClass ;
+  TokenClassCategory tokenClass ;
   bool first_is_int = false ;
   bool second_is_int = false ;
   int first_int = 0 ;
@@ -952,20 +1017,22 @@ string MultiplyNum( string s1, string s2, int &type ) {
   if ( first_is_int && second_is_int ) { // both int
     type = INT ;
     int sum = first_int * second_int ;
-    string temp = to_string(sum) ;
+    string temp = To_string( sum ) ;
     return temp ;
   } // if both int
   else {
     type = FLOAT ;
     double sum = first_float * second_float ;
-    string temp = to_string(sum) ;
-    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+    string temp = To_string( sum ) ;
+    if ( tokenClass.GetThisTokenType( temp ) == INT )
+      temp = temp + string( ".", 1 ) ;
+    return tokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
   } // else
 
 } // MultiplyNum() 
 
 string DividedNum( string s1, string s2, int &type ) {
-  TokenClassCategory TokenClass ;
+  TokenClassCategory tokenClass ;
   bool first_is_int = false ;
   bool second_is_int = false ;
   int first_int = 0 ;
@@ -978,14 +1045,16 @@ string DividedNum( string s1, string s2, int &type ) {
   if ( first_is_int && second_is_int ) { // both int
     type = INT ;
     int sum = first_int / second_int ;
-    string temp = to_string(sum) ;
+    string temp = To_string( sum ) ;
     return temp ;
   } // if both int
   else {
     type = FLOAT ;
     double sum = first_float / second_float ;
-    string temp = to_string(sum) ;
-    return TokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
+    string temp = To_string( sum ) ;
+    if ( tokenClass.GetThisTokenType( temp ) == INT )
+      temp = temp + string( ".", 1 ) ;
+    return tokenClass.DealWithDot_Back( temp ) ; // 我想直接call那個四捨五入的function ~ ~
   } // else
 
 } // DividedNum() 
@@ -1911,7 +1980,7 @@ TreeNode* ReadDefine( TreeNode* inputPtr ) {
           if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
             int type = GetDefinedType( inputPtr->m_left_token->m_token_string ) ;
             if ( type == SYMBOL ) {
-              temp_object.object_ptr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+              temp_object.object_ptr = Get_RealObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
             } // if 
           } // if
           else {
@@ -2180,7 +2249,7 @@ TreeNode* ReadPair( TreeNode* inputPtr ) {
   } // if
 
   return new TreeNode( NIL ) ;
-} // ReadATOM()
+} // ReadPair()
 
 TreeNode* ReadIsList( TreeNode* inputPtr ) {
 
@@ -2207,8 +2276,9 @@ TreeNode* ReadIsList( TreeNode* inputPtr ) {
   if ( nowPtr->m_type == LISP ) {
     nowPtr = nowPtr->m_left ;
     for ( ; nowPtr ; nowPtr = nowPtr->m_right ) {
-      if ( nowPtr->m_type != LISP && ( nowPtr->m_right_token || ( 
-           nowPtr->m_left_token && ! IsAtomType( nowPtr->m_left_token->m_type ) ) ) )
+      if ( nowPtr->m_type != LISP && 
+           ( nowPtr->m_right_token || 
+             ( nowPtr->m_left_token && ! IsAtomType( nowPtr->m_left_token->m_type ) ) ) )
         return new TreeNode( NIL ) ;
     } // for
 
@@ -2240,8 +2310,8 @@ TreeNode* ReadNULL( TreeNode* inputPtr ) {
     } // else 
   } // else
 
-  if ( !nowPtr || nowPtr->m_type == NIL || nowPtr->IsNIL() || ( nowPtr->m_left_token && 
-       nowPtr->m_left_token->m_type == NIL ) )
+  if ( !nowPtr || nowPtr->m_type == NIL || nowPtr->IsNIL() || 
+       ( nowPtr->m_left_token && nowPtr->m_left_token->m_type == NIL ) )
     return new TreeNode( T ) ;
   return new TreeNode( NIL ) ;
 } // ReadNULL()
@@ -2295,7 +2365,8 @@ TreeNode* ReadReal( TreeNode* inputPtr ) {
     } // else 
   } // else
 
-  if ( nowPtr->m_left_token && ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) )
+  if ( nowPtr->m_left_token && ( nowPtr->m_left_token->m_type == INT || 
+                                 nowPtr->m_left_token->m_type == FLOAT ) )
     return new TreeNode( T ) ;
   return new TreeNode( NIL ) ;
 } // ReadReal()
@@ -2349,8 +2420,9 @@ TreeNode* ReadBool( TreeNode* inputPtr ) {
     } // else 
   } // else
 
-  if ( !nowPtr || nowPtr->IsNIL() || ( nowPtr->m_left_token && ( nowPtr->m_left_token->m_type == NIL ||
-       nowPtr->m_left_token->m_type == T ) ) )
+  if ( !nowPtr || nowPtr->IsNIL() || 
+       ( nowPtr->m_left_token && 
+         ( nowPtr->m_left_token->m_type == NIL || nowPtr->m_left_token->m_type == T ) ) )
     return new TreeNode( T ) ;
   return new TreeNode( NIL ) ;
 } // ReadBool()
@@ -2381,13 +2453,14 @@ TreeNode* ReadSymBol( TreeNode* inputPtr ) {
   if ( nowPtr->m_left_token && nowPtr->m_left_token->m_type == SYMBOL  )
     return new TreeNode( T ) ;
   return new TreeNode( NIL ) ;
-} // ReadBool()
+} // ReadSymBol()
 
 TreeNode* ReadPlus( TreeNode* inputPtr ) {
   TokenClassCategory token_change ;
   TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
   sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
-  for ( ; inputPtr ; inputPtr = inputPtr->m_right ) {
+  int time = 0 ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
     
     TreeNode* nowPtr = NULL ;
 
@@ -2408,23 +2481,23 @@ TreeNode* ReadPlus( TreeNode* inputPtr ) {
         nowPtr = inputPtr ;
       } // else 
 
-      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
-        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
-          
-          sum_ptr->m_left_token->m_token_string = AddNum( token_change.ChangeToken( 
-                                                          sum_ptr->m_left_token->m_token_string ),
-                                                          token_change.ChangeToken( 
-                                                          nowPtr->m_left_token->m_token_string ),
-                                                          sum_ptr->m_left_token->m_type ) ; 
-                                                          // 要用他已經changeToken的來做運算
-        } // if
-        else {
-          throw invalid_argument( "Error Type" ) ;
-        } // else
+    } // else
+
+    if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+      if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+        if ( time != 0 )
+          sum_ptr->m_left_token->m_token_string = 
+          AddNum( token_change.ChangeToken( sum_ptr->m_left_token->m_token_string ),
+                  token_change.ChangeToken( nowPtr->m_left_token->m_token_string ),
+                  sum_ptr->m_left_token->m_type ) ; // 要用他已經changeToken的來做運算
+        else sum_ptr->m_left_token = nowPtr->m_left_token ;
       } // if
       else {
-        throw invalid_argument( "Error Type" ) ;
+        ErrorSymBol() ;
       } // else
+    } // if
+    else {
+      ErrorSymBol() ;
     } // else
   } // for
 
@@ -2436,7 +2509,8 @@ TreeNode* ReadSUB( TreeNode* inputPtr ) {
   TokenClassCategory token_change ;
   TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
   sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
-  for ( ; inputPtr ; inputPtr->m_right ) {
+  int time = 0 ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
     
     TreeNode* nowPtr = NULL ;
 
@@ -2456,35 +2530,37 @@ TreeNode* ReadSUB( TreeNode* inputPtr ) {
       else {
         nowPtr = inputPtr ;
       } // else 
+    } // else
 
-      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
-        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
-          sum_ptr->m_left_token->m_token_string = MinusNum( token_change.ChangeToken( 
-                                                          sum_ptr->m_left_token->m_token_string ),
-                                                          token_change.ChangeToken( 
-                                                          nowPtr->m_left_token->m_token_string ),
-                                                          sum_ptr->m_left_token->m_type ) ; 
-                                                          // 要用他已經changeToken的來做運算
-        } // if
-        else {
-          throw invalid_argument( "Error Type" ) ;
-        } // else
+    if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+      if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+        if ( time != 0 )
+          sum_ptr->m_left_token->m_token_string = 
+          MinusNum( token_change.ChangeToken( sum_ptr->m_left_token->m_token_string ),
+                    token_change.ChangeToken( nowPtr->m_left_token->m_token_string ),
+                    sum_ptr->m_left_token->m_type ) ; 
+                                                        // 要用他已經changeToken的來做運算
+        else sum_ptr->m_left_token = nowPtr->m_left_token ;
       } // if
       else {
-        throw invalid_argument( "Error Type" ) ;
+        ErrorSymBol() ;
       } // else
+    } // if
+    else {
+      ErrorSymBol() ;
     } // else
   } // for
 
   return sum_ptr ;
 
-} // ReadSub()
+} // ReadSUB()
 
 TreeNode* ReadMUX( TreeNode* inputPtr ) {
   TokenClassCategory token_change ;
   TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
   sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
-  for ( ; inputPtr ; inputPtr->m_right ) {
+  int time = 0 ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
     
     TreeNode* nowPtr = NULL ;
 
@@ -2504,24 +2580,24 @@ TreeNode* ReadMUX( TreeNode* inputPtr ) {
       else {
         nowPtr = inputPtr ;
       } // else 
+    } // else
 
-      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
-        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
-          
-          sum_ptr->m_left_token->m_token_string = MultiplyNum( token_change.ChangeToken( 
-                                                          sum_ptr->m_left_token->m_token_string ),
-                                                          token_change.ChangeToken( 
-                                                          nowPtr->m_left_token->m_token_string ),
-                                                          sum_ptr->m_left_token->m_type ) ; 
-                                                          // 要用他已經changeToken的來做運算
-        } // if
-        else {
-          throw invalid_argument( "Error Type" ) ;
-        } // else
+    if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+      if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+        if ( time != 0 )
+          sum_ptr->m_left_token->m_token_string = 
+          MultiplyNum( token_change.ChangeToken( sum_ptr->m_left_token->m_token_string ),
+                       token_change.ChangeToken( nowPtr->m_left_token->m_token_string ),
+                       sum_ptr->m_left_token->m_type ) ; 
+                                                        // 要用他已經changeToken的來做運算
+        else sum_ptr->m_left_token = nowPtr->m_left_token ;
       } // if
       else {
-        throw invalid_argument( "Error Type" ) ;
+        ErrorSymBol() ;
       } // else
+    } // if
+    else {
+      ErrorSymBol() ;
     } // else
   } // for
 
@@ -2533,7 +2609,8 @@ TreeNode* ReadDIV( TreeNode* inputPtr ) {
   TokenClassCategory token_change ;
   TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
   sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
-  for ( ; inputPtr ; inputPtr->m_right ) {
+  int time = 0 ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
     
     TreeNode* nowPtr = NULL ;
 
@@ -2553,30 +2630,357 @@ TreeNode* ReadDIV( TreeNode* inputPtr ) {
       else {
         nowPtr = inputPtr ;
       } // else 
+    } // else
 
-      if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
-        if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
-          
-          sum_ptr->m_left_token->m_token_string = DividedNum( token_change.ChangeToken( 
-                                                          sum_ptr->m_left_token->m_token_string ),
-                                                          token_change.ChangeToken( 
-                                                          nowPtr->m_left_token->m_token_string ),
-                                                          sum_ptr->m_left_token->m_type ) ; 
+    if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+      if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+        if ( time != 0 )
+          sum_ptr->m_left_token->m_token_string = 
+          DividedNum( token_change.ChangeToken( sum_ptr->m_left_token->m_token_string ),
+                      token_change.ChangeToken( nowPtr->m_left_token->m_token_string ),
+                      sum_ptr->m_left_token->m_type ) ; 
                                                           // 要用他已經changeToken的來做運算
-        } // if
-        else {
-          throw invalid_argument( "Error Type" ) ;
-        } // else
+        else sum_ptr->m_left_token = nowPtr->m_left_token ;
       } // if
       else {
-        throw invalid_argument( "Error Type" ) ;
+        ErrorSymBol() ;
       } // else
+    } // if
+    else {
+      ErrorSymBol() ;
     } // else
   } // for
 
   return sum_ptr ;
 
 } // ReadDIV()
+
+TreeNode* ReadNOT( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr = NULL ;
+  if ( inputPtr->m_type == LISP ) {
+    nowPtr = ReadLeft( inputPtr->m_left ) ;
+  } // if
+  else {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr =  ReadQuote( inputPtr ) ;
+    } // if
+    else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+        nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+        if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+      } // if
+    } // else if
+    else {
+      nowPtr = inputPtr ;
+    } // else 
+  } // else 
+
+  if ( ! nowPtr || ( nowPtr && nowPtr->IsNIL() ) || 
+       ( nowPtr->m_left_token && nowPtr->m_left_token->m_type == NIL ) ) {
+    return new TreeNode( T ) ;
+  } // if
+
+  return new TreeNode( NIL ) ;
+
+} // ReadNOT()
+
+TreeNode* ReadOperator( TreeNode* inputPtr, string op ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  int time = 0 ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+    } // else
+
+    if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+      if ( nowPtr->m_left_token->m_type == INT || nowPtr->m_left_token->m_type == FLOAT ) {
+        if ( time != 0 ) {
+          if ( ComPare( token_change.ChangeToken( sum_ptr->m_left_token->m_token_string ),
+                        token_change.ChangeToken( nowPtr->m_left_token->m_token_string ),
+                        op ) ) {
+            sum_ptr->m_left_token = nowPtr->m_left_token ;
+          } // if
+          else { 
+            return new TreeNode( NIL ) ;
+          } // else
+        } // if
+        else sum_ptr->m_left_token = nowPtr->m_left_token ;
+      } // if
+      else {
+        ErrorSymBol() ;
+      } // else
+    } // if
+    else {
+      ErrorSymBol() ;
+    } // else
+  } // for
+
+  return new TreeNode( T ) ;
+
+} // ReadOperator()
+
+TreeNode* ReadStringAppend( TreeNode* inputPtr ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  int time = 0 ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+    } // else
+
+    if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+      if ( nowPtr->m_left_token->m_type == STRING ) {
+        if ( time != 0 ) {
+          string str1 = sum_ptr->m_left_token->m_token_string.
+          substr( 0, sum_ptr->m_left_token->m_token_string.size()-1 ) ;
+          string str2 = nowPtr->m_left_token->m_token_string.
+          substr( 1, nowPtr->m_left_token->m_token_string.size()-1 ) ;
+          sum_ptr->m_left_token->m_token_string = str1+str2 ;
+        } // if
+        else sum_ptr->m_left_token = nowPtr->m_left_token ;
+      } // if
+      else {
+        ErrorSymBol() ;
+      } // else
+    } // if
+    else {
+      ErrorSymBol() ;
+    } // else
+  } // for
+
+  return sum_ptr ;
+
+} // ReadStringAppend()
+
+TreeNode* ReadStringCompare( TreeNode* inputPtr, string op ) {
+  TokenClassCategory token_change ;
+  TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
+  int time = 0 ;
+  for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
+    
+    TreeNode* nowPtr = NULL ;
+
+    if ( inputPtr->m_type == LISP ) {
+      nowPtr = ReadLeft( inputPtr->m_left ) ;
+    } // if
+    else {
+      if ( inputPtr->m_left_token->m_type == QUOTE ) {
+        nowPtr =  ReadQuote( inputPtr ) ;
+      } // if
+      else if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+        if ( IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
+          nowPtr = Get_DefObject_Ptr( inputPtr->m_left_token->m_token_string ) ;
+          if ( nowPtr->m_type == LISP ) nowPtr = nowPtr->m_left ;
+        } // if
+      } // else if
+      else {
+        nowPtr = inputPtr ;
+      } // else 
+    } // else
+
+    if ( nowPtr && nowPtr->m_type == TOKEN && nowPtr->m_left_token ) {
+      if ( nowPtr->m_left_token->m_type == STRING ) {
+        if ( time != 0 ) {
+          string str1 = sum_ptr->m_left_token->m_token_string ;
+          string str2 = nowPtr->m_left_token->m_token_string ;
+          if ( ComPareString( str1, str2, op ) ) {
+            sum_ptr->m_left_token = nowPtr->m_left_token ;
+          } // if
+          else {
+            return new TreeNode( NIL ) ;
+          } // else
+        } // if
+        else sum_ptr->m_left_token = nowPtr->m_left_token ;
+      } // if
+      else {
+        ErrorSymBol() ;
+      } // else
+    } // if
+    else {
+      ErrorSymBol() ;
+    } // else
+  } // for
+
+  return new TreeNode( T ) ;
+
+} // ReadStringCompare()
+
+TreeNode* ReadEQV( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr_1 = NULL ;
+  TreeNode* nowPtr_2 = NULL ;
+  int time = 0 ;
+  if ( inputPtr->m_type == TOKEN ) {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr_1 = ReadQuote( inputPtr ) ;
+      inputPtr = inputPtr->m_right ;
+    } // if
+    else if ( IsAtomType( inputPtr->m_left_token->m_type ) ) {
+      if ( inputPtr->m_left_token->m_type == STRING ) {
+        return new TreeNode( NIL ) ;
+      } // if
+      else {
+        nowPtr_1 = inputPtr ;
+      } // else
+    } // else if
+  } // if
+  else {
+    return new TreeNode( NIL ) ; 
+  } // else
+
+  inputPtr = inputPtr->m_right ;
+  if ( inputPtr->m_type == TOKEN ) {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr_2 = ReadQuote( inputPtr ) ;
+      inputPtr = inputPtr->m_right ;
+    } // if
+    else if ( IsAtomType( inputPtr->m_left_token->m_type ) ) {
+      if ( inputPtr->m_left_token->m_type == STRING ) {
+        return new TreeNode( NIL ) ;
+      } // if
+      else {
+        nowPtr_2 = inputPtr ;
+      } // else
+    } // else if
+  } // if
+  else {
+    return new TreeNode( NIL ) ; 
+  } // else
+
+  if ( nowPtr_1->m_type == TOKEN && nowPtr_2->m_type == TOKEN ) {
+    if ( nowPtr_1->m_left_token->m_type != STRING && nowPtr_2->m_left_token->m_type != STRING ) {
+      if ( nowPtr_1->m_left_token->m_type == nowPtr_2->m_left_token->m_type ) {
+        if ( nowPtr_1->m_left_token->m_type == SYMBOL ) {
+          if ( ! nowPtr_1->m_dont_exp ) {
+            nowPtr_1 = Get_RealObject_Ptr( nowPtr_1->m_left_token->m_token_string ) ;
+          } // if
+
+          if ( ! nowPtr_2->m_dont_exp ) {
+            nowPtr_2 = Get_RealObject_Ptr( nowPtr_2->m_left_token->m_token_string ) ;
+          } // if
+
+          if ( nowPtr_1 == nowPtr_2 ) {
+            return new TreeNode( T ) ;
+          } // if
+        } // if
+        else {
+          if ( nowPtr_1->m_left_token->m_token_string == nowPtr_2->m_left_token->m_token_string ) {
+            return new TreeNode( T ) ;
+          } // if
+        } // else
+      } // if
+    } // if
+  } // if
+
+  return new TreeNode( NIL ) ;
+} // ReadEQV() 
+
+
+TreeNode* ReadEQUAL( TreeNode* inputPtr ) {
+
+  TreeNode* nowPtr_1 = NULL ;
+  TreeNode* nowPtr_2 = NULL ;
+  int time = 0 ;
+  if ( inputPtr->m_type == TOKEN ) {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr_1 = ReadQuote( inputPtr ) ;
+      inputPtr = inputPtr->m_right ;
+      nowPtr_1->m_right = NULL ;
+    } // if
+    else if ( IsAtomType( inputPtr->m_left_token->m_type ) ) {
+      nowPtr_1 = inputPtr ;
+    } // else if
+  } // if
+  else {
+    nowPtr_1 = ReadLeft( inputPtr->m_left ) ; 
+  } // else
+
+  nowPtr_1 = CopyObject( nowPtr_1 ) ;
+  nowPtr_1->m_right = NULL ;
+  inputPtr = inputPtr->m_right ;
+  if ( inputPtr->m_type == TOKEN ) {
+    if ( inputPtr->m_left_token->m_type == QUOTE ) {
+      nowPtr_2 = ReadQuote( inputPtr ) ;
+      inputPtr = inputPtr->m_right ;
+    } // if
+    else if ( IsAtomType( inputPtr->m_left_token->m_type ) ) {
+      nowPtr_2 = inputPtr ;
+    } // else if
+  } // if
+  else {
+    nowPtr_2 = ReadLeft( inputPtr->m_left ) ;
+  } // else
+
+  nowPtr_2 = CopyObject( nowPtr_2 ) ;
+  nowPtr_2->m_right = NULL ;
+  if ( nowPtr_1->m_type == TOKEN ) {
+    if ( nowPtr_1->m_left_token->m_type == SYMBOL ) {
+      if ( ! nowPtr_1->m_dont_exp ) {
+        nowPtr_1 = Get_DefObject_Ptr( nowPtr_1->m_left_token->m_token_string ) ;
+        if ( nowPtr_1->m_type == LISP && ! nowPtr_1->m_can_read ) {
+          nowPtr_1 = nowPtr_1->m_left ;
+        } // if
+      } // if
+    } // if
+  } // if
+
+  if ( nowPtr_2->m_type == TOKEN ) {
+    if ( nowPtr_2->m_left_token->m_type == SYMBOL ) {
+      if ( ! nowPtr_2->m_dont_exp ) {
+        nowPtr_2 = Get_DefObject_Ptr( nowPtr_2->m_left_token->m_token_string ) ;
+        if ( nowPtr_2->m_type == LISP && ! nowPtr_2->m_can_read ) {
+          nowPtr_2 = nowPtr_2->m_left ;
+        } // if
+      } // if
+    } // if
+  } // if
+
+  if ( CompareTwoTreeNode( nowPtr_1, nowPtr_2 ) ) {
+    return new TreeNode( T ) ;
+  } // if 
+
+  return new TreeNode( NIL ) ;
+
+} // ReadEQUAL()
 
 TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
   if ( nowFunction.function_name == "'" || nowFunction.function_name == "quote" ) {
@@ -2618,7 +3022,7 @@ TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
     } // else if
     else if ( nowFunction.function_name == "list?" ) {
       return ReadIsList( inputPtr->m_right ) ;
-    } // else
+    } // else if
     else if ( nowFunction.function_name == "null?"  ) {
       return ReadNULL( inputPtr->m_right ) ;
     } // else if
@@ -2651,6 +3055,42 @@ TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
     } // else if
     else if ( nowFunction.function_name == "/" ) {
       return ReadDIV( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "not" ) {
+      return ReadNOT( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == ">" ) {
+      return ReadOperator( inputPtr->m_right, ">" ) ;
+    } // else if
+    else if ( nowFunction.function_name == "<" ) {
+      return ReadOperator( inputPtr->m_right, "<" ) ;
+    } // else if
+    else if ( nowFunction.function_name == "<=" ) {
+      return ReadOperator( inputPtr->m_right, "<=" ) ;
+    } // else if
+    else if ( nowFunction.function_name == "=" ) {
+      return ReadOperator( inputPtr->m_right, "==" ) ;
+    } // else if
+    else if ( nowFunction.function_name == ">=" ) {
+      return ReadOperator( inputPtr->m_right, ">=" ) ;
+    } // else if
+    else if ( nowFunction.function_name == "string-append" ) {
+      return ReadStringAppend( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "string=?" ) {
+      return ReadStringCompare( inputPtr->m_right, "string=?" ) ;
+    }  // else if
+    else if ( nowFunction.function_name == "string>?" ) {
+      return ReadStringCompare( inputPtr->m_right, "string>?" ) ;
+    } // else if
+    else if ( nowFunction.function_name == "string<?" ) {
+      return ReadStringCompare( inputPtr->m_right, "string<?" ) ;
+    } // else if
+    else if ( nowFunction.function_name == "eqv?" ) {
+      return ReadEQV( inputPtr->m_right ) ;
+    } // else if
+    else if ( nowFunction.function_name == "equal?" ) {
+      return ReadEQUAL( inputPtr->m_right ) ;
     } // else if
   } // if
   else {
