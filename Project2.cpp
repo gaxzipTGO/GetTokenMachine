@@ -1521,6 +1521,7 @@ class GetTokenMachine {
     } // while 
 
     if ( m_nextChar == EOF ) {
+      cout << endl << "> " ;
       ErrorMessage( "no more input" ) ;
     } // if
 
@@ -3088,6 +3089,7 @@ TreeNode* ReadNOT( TreeNode* inputPtr ) {
 TreeNode* ReadOperator( TreeNode* inputPtr, string op ) {
   TokenClassCategory token_change ;
   TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
+  TreeNode* final_ptr = new TreeNode( T ) ;
   sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
   int time = 0 ;
   for ( ; inputPtr ; inputPtr = inputPtr->m_right, time ++ ) {
@@ -3125,7 +3127,8 @@ TreeNode* ReadOperator( TreeNode* inputPtr, string op ) {
             sum_ptr->m_left_token = nowPtr->m_left_token ;
           } // if
           else { 
-            return new TreeNode( NIL ) ;
+            delete final_ptr ;
+            final_ptr =  new TreeNode( NIL ) ;
           } // else
         } // if
         else sum_ptr->m_left_token = nowPtr->m_left_token ;
@@ -3141,7 +3144,7 @@ TreeNode* ReadOperator( TreeNode* inputPtr, string op ) {
     } // else
   } // for
 
-  return new TreeNode( T ) ;
+  return final_ptr ;
 
 } // ReadOperator()
 
@@ -3204,6 +3207,7 @@ TreeNode* ReadStringAppend( TreeNode* inputPtr ) {
 
 TreeNode* ReadStringCompare( TreeNode* inputPtr, string op ) {
   TokenClassCategory token_change ;
+  TreeNode* final_ptr = new TreeNode( T ) ;
   TreeNode* sum_ptr = new TreeNode( TOKEN ) ;
   sum_ptr->m_left_token = new Token( "0", 0, 0, INT ) ;
   int time = 0 ;
@@ -3242,7 +3246,8 @@ TreeNode* ReadStringCompare( TreeNode* inputPtr, string op ) {
             sum_ptr->m_left_token = nowPtr->m_left_token ;
           } // if
           else {
-            return new TreeNode( NIL ) ;
+            delete final_ptr ;
+            final_ptr = new TreeNode( NIL ) ;
           } // else
         } // if
         else sum_ptr->m_left_token = nowPtr->m_left_token ;
@@ -3258,7 +3263,7 @@ TreeNode* ReadStringCompare( TreeNode* inputPtr, string op ) {
     } // else
   } // for
 
-  return new TreeNode( T ) ;
+  return final_ptr ;
 
 } // ReadStringCompare()
 
@@ -3281,6 +3286,9 @@ TreeNode* ReadEQV( TreeNode* inputPtr ) {
       } // else
     } // else if
   } // if
+  else if ( inputPtr->m_type == LISP ) {
+    nowPtr_1 = ReadLeft( inputPtr->m_left ) ;
+  } // else if
   else {
     return new TreeNode( NIL ) ; 
   } // else
@@ -3300,6 +3308,9 @@ TreeNode* ReadEQV( TreeNode* inputPtr ) {
       } // else
     } // else if
   } // if
+  else if ( inputPtr->m_type == LISP ) {
+    nowPtr_2 = ReadLeft( inputPtr->m_left ) ;
+  } // else if
   else {
     return new TreeNode( NIL ) ; 
   } // else
@@ -3371,6 +3382,39 @@ TreeNode* ReadEQV( TreeNode* inputPtr ) {
         } // else
       } // if
     } // if
+  } // if
+
+  if ( nowPtr_1->m_type == NIL || nowPtr_2->m_type == NIL ) {
+    if ( !nowPtr_1->IsNIL() && !nowPtr_1->m_dont_exp && nowPtr_1->m_left_token ) {
+      if ( IsDefinedOrNot( nowPtr_1->m_left_token->m_token_string ) ) {
+        if ( GetDefObject( nowPtr_1->m_left_token->m_token_string ).type == SYMBOL ) {
+          nowPtr_1 = Get_RealObject_Ptr( nowPtr_1->m_left_token->m_token_string ) ;
+        } // if
+        else {
+          return new TreeNode( NIL ) ;
+        } // else
+      } // if
+      else {
+        ErrorSymBol( nowPtr_1->m_left_token->m_token_string ) ;
+      } // else
+    } // if
+
+    if ( !nowPtr_2->IsNIL() && !nowPtr_2->m_dont_exp && nowPtr_2->m_left_token ) {
+      if ( IsDefinedOrNot( nowPtr_2->m_left_token->m_token_string ) ) {
+        if ( GetDefObject( nowPtr_2->m_left_token->m_token_string ).type == SYMBOL ) {
+          nowPtr_2 = Get_RealObject_Ptr( nowPtr_2->m_left_token->m_token_string ) ;
+        } // if
+        else {
+          return new TreeNode( NIL ) ;
+        } // else
+      } // if
+      else {
+        ErrorSymBol( nowPtr_2->m_left_token->m_token_string ) ;
+      } // else
+    } // if
+
+    if ( ( nowPtr_1 == NULL || nowPtr_1->IsNIL() ) && 
+         ( nowPtr_2 == NULL || nowPtr_2->IsNIL() ) ) return new TreeNode( T ) ;
   } // if
 
   return new TreeNode( NIL ) ;
@@ -3760,6 +3804,7 @@ TreeNode* ReadBegin( TreeNode* inputPtr ) {
 
 TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
   g_level ++ ;
+  cout << "" ;
   if ( nowFunction.m_function_name == "'" || nowFunction.m_function_name == "quote" ) {
     return ReadQuote( inputPtr ) ;
   } // if
