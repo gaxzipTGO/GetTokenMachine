@@ -2197,6 +2197,8 @@ TreeNode* ReadCons( TreeNode* inputPtr, int time ) {
       else {
         nowPtr->m_right = NULL ;
         nowPtr->m_right_token = tempNode->m_left_token ;
+        if ( nowPtr->m_right_token && nowPtr->m_right_token->m_type == NIL )
+          nowPtr->m_right_token = NULL ;
       } // else 
     } // if
   } // if
@@ -3963,7 +3965,7 @@ TreeNode* ReadLeft( TreeNode* inputPtr ) {
         temp = ReadLeft( temp ) ;
       } // if
       else if ( temp->m_left_token && temp->m_left_token->m_type == SYMBOL &&
-                temp->m_left_token->m_dont_exp && 
+                !temp->m_left_token->m_dont_exp && 
                 !IsDefinedOrNot( temp->m_left_token->m_token_string ) ) {
         ErrorSymBol( temp->m_left_token->m_token_string ) ; 
       } // else if
