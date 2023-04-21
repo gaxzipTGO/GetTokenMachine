@@ -2573,6 +2573,8 @@ TreeNode* ReadPair( TreeNode* inputPtr ) {
   } // else
 
   if ( nowPtr->m_type == LISP ) {
+    return new TreeNode( T ) ;
+    /* 
     nowPtr = nowPtr->m_left ;
     if ( nowPtr->m_left_token && IsAtomType( nowPtr->m_left_token->m_type ) ) {
       if ( nowPtr->m_right_token && IsAtomType( nowPtr->m_right_token->m_type ) ) {
@@ -2591,11 +2593,11 @@ TreeNode* ReadPair( TreeNode* inputPtr ) {
             } // if
           } // else if
           else if ( nowPtr->m_left ) {
-            return new TreeNode( T ) ;
           } // else if
         } // if
       } // else
     } // if
+    */
   } // if
 
   return new TreeNode( NIL ) ;
@@ -2629,10 +2631,9 @@ TreeNode* ReadIsList( TreeNode* inputPtr ) {
 
   if ( nowPtr->m_type == LISP ) {
     nowPtr = nowPtr->m_left ;
+
     for ( ; nowPtr ; nowPtr = nowPtr->m_right ) {
-      if ( nowPtr->m_type != LISP && 
-           ( nowPtr->m_right_token || 
-             ( nowPtr->m_left_token && ! IsAtomType( nowPtr->m_left_token->m_type ) ) ) )
+      if ( nowPtr->m_right_token )
         return new TreeNode( NIL ) ;
     } // for
 
