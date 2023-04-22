@@ -3871,10 +3871,9 @@ TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
     } // if
   } // else if
 
-  if ( nowFunction.m_function_name == "'" || nowFunction.m_function_name == "quote" ) {
-    return ReadQuote( inputPtr ) ;
-  } // if
-  else if ( CheckNodeValidity( inputPtr ) ) { // 這裡如果沒找到function的話會跳出error
+  if ( CheckNodeValidity( inputPtr ) ) { // 這裡如果沒找到function的話會跳出error
+    if ( nowFunction.m_function_name == "'" || nowFunction.m_function_name == "quote" ) 
+      return ReadQuote( inputPtr ) ;
     if ( nowFunction.m_function_name == "cons" ) {
       TreeNode* nowPtr = new TreeNode( false ) ;
       nowPtr->m_type = LISP ;
