@@ -3394,7 +3394,7 @@ TreeNode* ReadEQV( TreeNode* inputPtr ) {
     比對後只要OK就沒事了
   */
   if ( nowPtr_1->m_left_token->m_type != SYMBOL && nowPtr_2->m_left_token->m_type != SYMBOL ) {
-    if ( nowPtr_1->m_left_token->m_token_string == nowPtr_1->m_left_token->m_token_string )
+    if ( nowPtr_1->m_left_token->m_token_string == nowPtr_2->m_left_token->m_token_string )
       return new TreeNode( T ) ;
   } // if
 
@@ -3450,7 +3450,7 @@ TreeNode* ReadEQV( TreeNode* inputPtr ) {
     else return new TreeNode( NIL ) ;
   } // if
 
-  if ( !real_ptr_1 && real_ptr_2 ) return new TreeNode( NIL ) ;
+  if ( !real_ptr_1 && !real_ptr_2 ) return new TreeNode( NIL ) ;
 
   if ( real_ptr_1 && !real_ptr_2 ) {
     if ( ( real_ptr_1->m_left_token && real_ptr_1->m_left_token->m_type ) == 
@@ -3473,7 +3473,8 @@ TreeNode* ReadEQV( TreeNode* inputPtr ) {
     if ( real_ptr_1->m_type == TOKEN && real_ptr_2->m_type == TOKEN ) {
       if ( ( real_ptr_1->m_left_token && IsAtomType( real_ptr_1->m_left_token->m_type ) ) &&
            ( real_ptr_2->m_left_token && IsAtomType( real_ptr_2->m_left_token->m_type ) ) && 
-           ( real_ptr_1->m_left_token->m_type != SYMBOL && real_ptr_2->m_left_token->m_type != SYMBOL ) ) {
+           ( real_ptr_1->m_left_token->m_type != SYMBOL && real_ptr_2->m_left_token->m_type != SYMBOL ) && 
+           ( real_ptr_1->m_left_token->m_type != STRING && real_ptr_2->m_left_token->m_type != STRING ) ) {
         if ( real_ptr_1->m_left_token->m_token_string == real_ptr_2->m_left_token->m_token_string )
           return new TreeNode( T ) ;
       } // if
@@ -3766,7 +3767,7 @@ TreeNode* ReadCOND( TreeNode* inputPtr ) {
               resultPtr = Get_DefObject_Ptr( nowPtr->m_left_token->m_token_string ) ;
             } // if
             else {
-              ErrorSymBol( inputPtr->m_left_token->m_token_string ) ;
+              ErrorSymBol( nowPtr->m_left_token->m_token_string ) ;
             } // else
           } // else if
           else {
@@ -4108,6 +4109,8 @@ TreeNode* ReadLeft( TreeNode* inputPtr ) {
 
     if ( 1 ) throw invalid_argument( "Error" ) ;
   } // catch
+
+  return new TreeNode( NIL ) ;
 } // ReadLeft()
 
 
