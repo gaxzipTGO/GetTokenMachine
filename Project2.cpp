@@ -95,12 +95,6 @@ void ArgumentError( string function_name ) {
   if ( 1 ) throw invalid_argument( "Argument Error" ) ;
 } // ArgumentError()
 
-void ErrorFunction( string symbol ) {
-
-  cout << "ERROR (attempt to apply non-function) : " << symbol << endl ;
-  if ( 1 ) throw invalid_argument( "Non Function" ) ;
-
-} // ErrorFunction()
 
 
 void ErrorFormat( string function ) {
@@ -1151,7 +1145,8 @@ class TokenClassCategory {
     else if ( IsFloat( token ) ) {
       return FLOAT ;
     } // else if
-    else if ( IsIntMissm_operater( token ) ) { // 只有純數字的int ex: 123 456
+    else if ( IsIntMissm_operater( token ) && 
+              ( token != "+" && token != "-" && token != "*" && token != "/" ) ) { // 只有純數字的int ex: 123 456
       return INT ;
     } // else if
     else if ( token == "+" || token == "-" || token == "*" || token == "/" ) {
@@ -1734,6 +1729,42 @@ bool GetTokenMachine::GetChar( char &ch, bool skipEOF ) {
 
 } // GetTokenMachine::GetChar()
 
+void CheckEXP( Token* inputToken ) {
+
+  if ( inputToken && inputToken->m_dont_exp == false ) {
+    if ( inputToken->m_type == SYMBOL ||
+         inputToken->m_token_string == "+" ||
+         inputToken->m_token_string == "-" || 
+         inputToken->m_token_string == "*" ||
+         inputToken->m_token_string == "/" ) {
+      if ( IsDefinedOrNot( inputToken->m_token_string ) ) {
+        int type = GetDefinedType( inputToken->m_token_string ) ;
+        if ( type == FUNCTION ) {
+          inputToken->m_token_string = "#<procedure " + inputToken->m_token_string + ">" ;
+        } // if
+      } // if
+      else {
+        ErrorSymBol( inputToken->m_token_string ) ;
+      } // else
+    } // if
+  } // if
+
+} // CheckEXP()
+
+void CheckEXP( TreeNode* inputPtr ) {
+
+  if ( inputPtr ) {
+    CheckEXP( inputPtr->m_left_token ) ;
+    CheckEXP( inputPtr->m_right_token ) ;
+
+    if ( ! inputPtr->m_dont_exp )
+      CheckEXP( inputPtr->m_left ) ;
+    CheckEXP( inputPtr->m_right ) ;
+  } // if
+
+
+} // CheckEXP()
+
 class Statement {
 
   protected : GetTokenMachine m_pl_tokenGetter ;
@@ -1784,6 +1815,24 @@ class Statement {
     PrintLisp( inputPtr, 0, enter ) ;
     if ( 1 ) throw invalid_argument( "Type Error" ) ;
   } // ErrorType()
+
+  public : void ErrorFunction( TreeNode* inputPtr ) {
+
+    cout << "ERROR (attempt to apply non-function) : "  ;
+    bool enter ;
+    if ( inputPtr->m_right_token ) {
+      TreeNode* newPtr = new TreeNode( false ) ;
+      newPtr->m_type = LISP ;
+      newPtr->m_left = inputPtr ;
+      inputPtr = newPtr ;
+    } // if
+
+    inputPtr->m_can_read = false ;
+    CheckEXP( inputPtr ) ;
+    PrintLisp( inputPtr, 0, enter ) ;
+    if ( 1 ) throw invalid_argument( "Non Function" ) ;
+
+  } // ErrorFunction()
 } 
 ; // Statemant
 
@@ -3612,7 +3661,13 @@ TreeNode* ReadIF( TreeNode* inputPtr ) {
 
     nowPtr = CopyObject( nowPtr ) ;
     nowPtr->m_right = NULL ;
-    if ( time == 0 ) ptr_1 = nowPtr ;
+    if ( time == 0 ) {
+      ptr_1 = nowPtr ;
+      if ( ptr_1->IsNIL() || ( ptr_1 && ptr_1->m_left_token && ptr_1->m_left_token->m_type == NIL ) ) {
+        time ++ ;
+        inputPtr = inputPtr->m_right ;
+      } // if 回傳第三個
+    } // if
     else if ( time == 1 ) ptr_2 = nowPtr ;
     else if ( time == 2 ) ptr_3 = nowPtr ;
   } // for
@@ -3654,8 +3709,11 @@ TreeNode* ReadLEFT_TO_COND( TreeNode* inputPtr ) {
       return inputPtr ;
     } // else
   } // if
-  else if ( inputPtr->m_type == LISP )
-    return ReadLeft( inputPtr ) ;
+  else if ( inputPtr->m_type == LISP ) {
+    TreeNode* tempNode  = ReadLeft( inputPtr->m_left ) ;
+    tempNode->m_right = inputPtr->m_right ;
+    return tempNode ;
+  } // else if
 
   return new TreeNode( NIL ) ;
 } // ReadLEFT_TO_COND()
@@ -3770,9 +3828,49 @@ void CheckCondFormat( TreeNode* inputPtr ) {
 
 } // CheckCondFormat()
 
+bool IsList( TreeNode* inputPtr ) {
+  if ( inputPtr ) {
+    if ( inputPtr->m_right_token ) return false ;
+    if ( !IsList( inputPtr->m_right ) ) return false ;
+  } // if
+
+  return true ;
+
+} // IsList()
+
+void DeletePtr( TreeNode* inputPtr ) ;
+
 TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
+  Statement printer ;
   g_level ++ ;
   cout << "" ;
+  if ( !IsList( inputPtr ) ) {
+    cout << "ERROR (non-list) : " ;
+    bool enter = false ;
+    TreeNode* newPtr = new TreeNode( false ) ;
+    newPtr->m_type = LISP ;
+    newPtr->m_left = inputPtr ;
+    printer.PrintLisp( newPtr, 0, enter ) ;
+    DeletePtr( newPtr ) ;
+    throw invalid_argument( "Error (non-list)" ) ; 
+  } // if
+
+  if ( nowFunction.m_function_name == "define" ) {
+    if ( g_level != 1 ) {
+      ErrorLevel( "DEFINE" ) ;
+    } // if
+  } // if
+  else if ( nowFunction.m_function_name == "clean-environment" ) {
+    if ( g_level != 1 ) {
+      ErrorLevel( "CLEAN-ENVIRONMENT" ) ;
+    } // if
+  } // else if
+  else if ( nowFunction.m_function_name == "exit" ) {
+    if ( g_level != 1 ) {
+      ErrorLevel( "EXIT" ) ;
+    } // if
+  } // else if
+
   if ( nowFunction.m_function_name == "'" || nowFunction.m_function_name == "quote" ) {
     return ReadQuote( inputPtr ) ;
   } // if
@@ -3925,59 +4023,56 @@ TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
   return new TreeNode( NIL ) ;
 } // ReadFunction()
 
-bool IsList( TreeNode* inputPtr ) {
-  if ( inputPtr ) {
-    if ( inputPtr->m_right_token ) return false ;
-    if ( !IsList( inputPtr->m_right ) ) return false ;
-  } // if
-
-  return true ;
-
-} // IsList()
-
-void DeletePtr( TreeNode* inputPtr ) ;
 
 TreeNode* ReadLeft( TreeNode* inputPtr ) {
   Statement printer ;
   try {
-    if ( !IsList( inputPtr ) ) {
-      cout << "ERROR (non-list) : " ;
-      bool enter = false ;
-      TreeNode* newPtr = new TreeNode( false ) ;
-      newPtr->m_type = LISP ;
-      newPtr->m_left = inputPtr ;
-      printer.PrintLisp( newPtr, 0, enter ) ;
-      DeletePtr( newPtr ) ;
-      throw invalid_argument( "Error (non-list)" ) ; 
-    } // if
 
     if ( inputPtr->m_type == LISP ) {
+      if ( inputPtr->m_dont_exp )
+        if ( 1 ) throw invalid_argument( "Function Error" ) ;
       TreeNode* temp = ReadLeft( inputPtr->m_left ) ;
       temp->m_right = inputPtr->m_right ;
-      if ( temp->m_left_token && GetDefinedType( temp->m_left_token->m_token_string ) == FUNCTION ) {
-        temp = ReadLeft( temp ) ;
+      if ( temp->m_type == LISP ) {
+        printer.ErrorFunction( temp ) ;
       } // if
-      else if ( temp->m_left_token && temp->m_left_token->m_type == SYMBOL &&
-                !temp->m_left_token->m_dont_exp && 
-                !IsDefinedOrNot( temp->m_left_token->m_token_string ) ) {
-        ErrorSymBol( temp->m_left_token->m_token_string ) ; 
-      } // else if
 
+      temp = ReadLeft( temp ) ;
       return temp ;
     } // if 如果他還是一個leftparn 那就要先下一個function所輸出的結果回傳出來 
     else if ( inputPtr->m_type == TOKEN ) {
+      if ( inputPtr->m_right_token ) if ( 1 ) throw invalid_argument( "Function Error" ) ;
       Function nowFunction ;
       int type = 0 ;
-      if ( inputPtr->m_left_token->m_type == SYMBOL ) {
+      if ( inputPtr->m_dont_exp == false && 
+           ( inputPtr->m_left_token->m_type == SYMBOL || inputPtr->m_left_token->m_type == QUOTE ) ) {
         if ( !IsDefinedOrNot( inputPtr->m_left_token->m_token_string ) ) {
           ErrorSymBol( inputPtr->m_left_token->m_token_string ) ;
         } // if
+        else {
+          int token_type = GetDefinedType( inputPtr->m_left_token->m_token_string ) ; 
+          if ( token_type == SYMBOL ) {
+            Object object = GetDefObject( inputPtr->m_left_token->m_token_string ) ;
+            if ( object.type == FUNCTION ) {
+              nowFunction = GetFromFunction( object.object_function->m_function_name ) ;
+              return ReadFunction( inputPtr, nowFunction ) ; 
+              // 如果有定義過就可以進來 會根據function的名字以及他的m_argument做出相對應的動作
+            } // if
+            else inputPtr = Get_DefObject_Ptr( object.object_name ) ;
+          } // if
+          else if ( token_type == FUNCTION ) {
+            nowFunction = GetFromFunction( inputPtr->m_left_token->m_token_string ) ;
+            return ReadFunction( inputPtr, nowFunction ) ; 
+            // 如果有定義過就可以進來 會根據function的名字以及他的m_argument做出相對應的動作
+          } // else if
+
+        } // else
       } // if 如果他是symbol的話要先確定有沒有定義過 如果沒有定義過要直接拋出錯誤
 
-      nowFunction = GetFromFunction( inputPtr->m_left_token->m_token_string ) ; 
+      if ( 1 ) throw invalid_argument( "Function Error" ) ;
+      return new TreeNode( NIL ) ;
       // 如果這邊沒有定義過 那會拋出一個error 自然就會被整個丟出去
       // 由於left後面一定要接一個function 所以如果找不到function就代表這個東西不對了
-      return ReadFunction( inputPtr, nowFunction ) ; // 如果有定義過就可以進來 會根據function的名字以及他的m_argument做出相對應的動作
     } // else if
     else if ( ! inputPtr->m_left ) {
       return new TreeNode( NIL ) ;
@@ -4006,10 +4101,13 @@ TreeNode* ReadLeft( TreeNode* inputPtr ) {
       DeletePtr( newPtr ) ;
     } // if
     else if ( strcmp( e.what(), "Function Error" ) == 0 ) {
-      ErrorFunction( inputPtr->m_left_token->m_token_string ) ;
+      printer.ErrorFunction( inputPtr ) ;
     } // if
+    else if ( strcmp( e.what(), "Normal Exit" ) == 0 ) {
+      if ( 1 ) throw invalid_argument( e.what() ) ;
+    } // else if
 
-    throw invalid_argument( e.what() ) ;
+    if ( 1 ) throw invalid_argument( "Error" ) ;
   } // catch
 } // ReadLeft()
 
@@ -4090,41 +4188,6 @@ void CheckNIL( TreeNode* inputPtr ) {
   } // if
 } // CheckNIL()
 
-void CheckEXP( Token* inputToken ) {
-
-  if ( inputToken && inputToken->m_dont_exp == false ) {
-    if ( inputToken->m_type == SYMBOL ||
-         inputToken->m_token_string == "+" ||
-         inputToken->m_token_string == "-" || 
-         inputToken->m_token_string == "*" ||
-         inputToken->m_token_string == "/" ) {
-      if ( IsDefinedOrNot( inputToken->m_token_string ) ) {
-        int type = GetDefinedType( inputToken->m_token_string ) ;
-        if ( type == FUNCTION ) {
-          inputToken->m_token_string = "#<procedure " + inputToken->m_token_string + ">" ;
-        } // if
-      } // if
-      else {
-        ErrorSymBol( inputToken->m_token_string ) ;
-      } // else
-    } // if
-  } // if
-
-} // CheckEXP()
-
-void CheckEXP( TreeNode* inputPtr ) {
-
-  if ( inputPtr ) {
-    CheckEXP( inputPtr->m_left_token ) ;
-    CheckEXP( inputPtr->m_right_token ) ;
-
-    if ( ! inputPtr->m_dont_exp )
-      CheckEXP( inputPtr->m_left ) ;
-    CheckEXP( inputPtr->m_right ) ;
-  } // if
-
-
-} // CheckEXP()
 
 void DeletePtr( Token* inputToken ) {
 
