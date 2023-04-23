@@ -1834,6 +1834,7 @@ class Statement {
     cout << "ERROR (" << function << " with incorrect argument type) : " ;
     bool enter ;
     inputPtr->m_can_read = false ;
+    CheckEXP( inputPtr ) ;
     PrintLisp( inputPtr, 0, enter ) ;
     if ( 1 ) throw invalid_argument( "Type Error" ) ;
   } // ErrorType()
