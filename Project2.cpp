@@ -1088,6 +1088,30 @@ class TokenClassCategory {
     return token ;
   } // DealWithDot_Front()
 
+  protected: string RoundFinal( string token ) {
+
+    for ( int i = token.size()-1 ; i > 0 ; i -- ) {
+      if ( token[i] == ':' ) {
+        token[i] = '0' ;
+        if ( token[i-1] == '.' )
+          i -- ;
+        if ( token[i-1] == '-' )
+          token.insert( token.begin()+1, '1' ) ;
+        else {
+          token[i-1] = token[i-1] + 1 ;
+        } // else
+      } // if
+    } // for
+
+
+    if ( token[0] == ':' ) {
+      token[0] = '0' ;
+      token.insert( token.begin(), '1' ) ;
+    } // if
+
+    return token ;
+  } // RoundFinal()
+
   public: virtual string ChangeToken( string token ) {
     if ( token.compare( "t" ) == 0 ) {
       return "#t" ;
@@ -1095,9 +1119,6 @@ class TokenClassCategory {
     else if ( token.compare( "#f" ) == 0 ) {
       return "nil" ;
     } // else if 
-    else if ( token == "+" || token == "-" || token == "*" ) {
-      return token ;
-    } // else if
     else if ( GetThisTokenType( token ) == STRING || GetThisTokenType( token ) == SYMBOL ||
               GetThisTokenType( token ) == LEFT_PAREN || GetThisTokenType( token ) == LEFT_PAREN ||
               GetThisTokenType( token ) == DOT ) {
@@ -1110,6 +1131,7 @@ class TokenClassCategory {
     token = DealWithDot_Front( token ) ;  // 在小數點前補0
     token = DealWithDot_Back( token ) ;  // 在小數點後補0 四捨五入 有字母不會做改變
     token = DealWithm_operater( token ) ;  // 如果是+就把+刪掉 其餘不動
+    token = RoundFinal( token ) ;
     return token ;
   } // ChangeToken()
 
@@ -1827,6 +1849,7 @@ class Statement {
       inputPtr = newPtr ;
     } // if
 
+    inputPtr->m_right = NULL ;
     inputPtr->m_can_read = false ;
     CheckEXP( inputPtr ) ;
     PrintLisp( inputPtr, 0, enter ) ;
@@ -2041,16 +2064,17 @@ void Statement :: CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_v
         wait_token_vector.erase( wait_token_vector.begin(), wait_token_vector.begin() + 2 ) ;
         CreateLisp( now_TreePtr, wait_token_vector, true ) ;
       } // if
-      else if ( wait_token_vector[1].m_token_string == "0" || 
-                wait_token_vector[1].m_type == NIL ) {
+      else if ( wait_token_vector[1].m_type == NIL ) {
         wait_token_vector.erase( wait_token_vector.begin(), wait_token_vector.begin() + 2 ) ;
       } // else if
       else if ( IsAtomType( wait_token_vector[1].m_type )  ) {
-        now_TreePtr->m_right_token = new Token( wait_token_vector[1].m_token_string, 
-                                                wait_token_vector[1].m_colnum, 
-                                                wait_token_vector[1].m_line,
-                                                wait_token_vector[1].m_type ) ;
+        Token* tempToken = 
+        new Token( m_tokenCategorier.ChangeToken( wait_token_vector[1].m_token_string ), 
+                                                  wait_token_vector[1].m_colnum, 
+                                                  wait_token_vector[1].m_line,
+                                                  wait_token_vector[1].m_type ) ;
         wait_token_vector.erase( wait_token_vector.begin(), wait_token_vector.begin() + 2 ) ;
+        now_TreePtr->m_right_token = tempToken ;
       } // else if
     } // if
     
@@ -2059,10 +2083,11 @@ void Statement :: CreateLisp( TreeNode* now_TreePtr, vector<Token> &wait_token_v
     } // if 如果是 ")" 
     else {
       if ( now_TreePtr->m_left_ok == true ) {
-        Token* tempToken = new Token( wait_token_vector.front().m_token_string, 
-                                      wait_token_vector.front().m_colnum,
-                                      wait_token_vector.front().m_line,
-                                      wait_token_vector.front().m_type ) ;
+        Token* tempToken = 
+        new Token( m_tokenCategorier.ChangeToken( wait_token_vector.front().m_token_string ), 
+                                                  wait_token_vector.front().m_colnum,
+                                                  wait_token_vector.front().m_line,
+                                                  wait_token_vector.front().m_type ) ;
         now_TreePtr->AddLeft( tempToken ) ;
         wait_token_vector.erase( wait_token_vector.begin() ) ;
         CreateLisp( now_TreePtr, wait_token_vector, false ) ;
@@ -2113,7 +2138,7 @@ void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
             enter = false ;
           } // if
 
-          cout << m_tokenCategorier.ChangeToken( now_TreePtr->m_left_token->m_token_string ) << endl ;
+          cout << now_TreePtr->m_left_token->m_token_string << endl ;
 
           enter = true ;
         } // if
@@ -2129,7 +2154,7 @@ void Statement :: PrintLisp( TreeNode* now_TreePtr, int level, bool &enter ) {
             PrintWhiteSpaceWithLevel( level ) ;
             cout << "." << endl ;
             PrintWhiteSpaceWithLevel( level ) ;
-            cout << m_tokenCategorier.ChangeToken( now_TreePtr->m_right_token->m_token_string ) << endl ;
+            cout << now_TreePtr->m_right_token->m_token_string << endl ;
           } // if
           
           PrintLisp( now_TreePtr->m_right, level, enter ) ;
@@ -2156,11 +2181,12 @@ TreeNode* ReadCdr( TreeNode* inputPtr ) ;
 TreeNode* ReadATOM( TreeNode* inputPtr ) ;
 
 TreeNode* CreateToken( Token token ) {
+  TokenClassCategory m_token_change ;
   TreeNode* now_TreePtr = new TreeNode( false ) ;
-  Token* tempToken = new Token( token.m_token_string, 
-                                  token.m_colnum,
-                                  token.m_line,
-                                  token.m_type ) ;
+  Token* tempToken = new Token( m_token_change.ChangeToken( token.m_token_string ), 
+                                token.m_colnum,
+                                token.m_line,
+                                token.m_type ) ;
   now_TreePtr->AddLeft( tempToken ) ;
   now_TreePtr->m_left_ok = false ;
   now_TreePtr->m_type = TOKEN ;
@@ -3195,7 +3221,7 @@ TreeNode* ReadOperator( TreeNode* inputPtr, string op ) {
                         op ) ) {
             sum_ptr->m_left_token = nowPtr->m_left_token ;
           } // if
-          else { 
+          else {
             delete final_ptr ;
             final_ptr =  new TreeNode( NIL ) ;
           } // else
