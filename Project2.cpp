@@ -3712,7 +3712,30 @@ TreeNode* ReadIF( TreeNode* inputPtr ) {
   return new TreeNode( NIL ) ;
 } // ReadIF() 
 
+bool IsList( TreeNode* inputPtr ) {
+  if ( inputPtr ) {
+    if ( inputPtr->m_right_token ) return false ;
+    if ( !IsList( inputPtr->m_right ) ) return false ;
+  } // if
+
+  return true ;
+
+} // IsList()
+
+void DeletePtr( TreeNode* inputPtr ) ;
+
 TreeNode* ReadLEFT_TO_COND( TreeNode* inputPtr ) {
+  if ( !IsList( inputPtr ) ) {
+    cout << "ERROR (non-list) : " ;
+    bool enter = false ;
+    Statement printer ;
+    TreeNode* newPtr = new TreeNode( false ) ;
+    newPtr->m_type = LISP ;
+    newPtr->m_left = inputPtr ;
+    printer.PrintLisp( newPtr, 0, enter ) ;
+    DeletePtr( newPtr ) ;
+    throw invalid_argument( "Error (non-list)" ) ; 
+  } // if
 
   if ( inputPtr->m_type == TOKEN || inputPtr->m_type == NIL ) { 
     if ( inputPtr->IsNIL() || 
@@ -3748,6 +3771,18 @@ TreeNode* ReadLEFT_TO_COND( TreeNode* inputPtr ) {
 
 TreeNode* ReadLEFTANDELSE( TreeNode* inputPtr ) {
 
+  if ( !IsList( inputPtr ) ) {
+    Statement printer ;
+    cout << "ERROR (non-list) : " ;
+    bool enter = false ;
+    TreeNode* newPtr = new TreeNode( false ) ;
+    newPtr->m_type = LISP ;
+    newPtr->m_left = inputPtr ;
+    printer.PrintLisp( newPtr, 0, enter ) ;
+    DeletePtr( newPtr ) ;
+    throw invalid_argument( "Error (non-list)" ) ; 
+  } // if
+
   if ( inputPtr->m_left_token && inputPtr->m_left_token->m_token_string == "else" ) {
     TreeNode* tempNode = new TreeNode( T ) ;
     tempNode->m_right = inputPtr->m_right ;
@@ -3760,6 +3795,7 @@ TreeNode* ReadLEFTANDELSE( TreeNode* inputPtr ) {
   return new TreeNode( NIL ) ;
 
 } // ReadLEFTANDELSE()
+
 
 TreeNode* ReadCOND( TreeNode* inputPtr ) {
 
@@ -3856,17 +3892,7 @@ void CheckCondFormat( TreeNode* inputPtr ) {
 
 } // CheckCondFormat()
 
-bool IsList( TreeNode* inputPtr ) {
-  if ( inputPtr ) {
-    if ( inputPtr->m_right_token ) return false ;
-    if ( !IsList( inputPtr->m_right ) ) return false ;
-  } // if
 
-  return true ;
-
-} // IsList()
-
-void DeletePtr( TreeNode* inputPtr ) ;
 
 TreeNode* ReadFunction( TreeNode* inputPtr, Function nowFunction ) {
   Statement printer ;
