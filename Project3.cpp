@@ -64,6 +64,7 @@ enum G_Category {
 */
 
 int g_level = 0 ;
+bool g_cos_function = false ;
 
 string To_string( int value ) {
   stringstream ss ;
@@ -91,6 +92,7 @@ void NoReturnError() {
 } // NoReturnError()
 
 void ArgumentError( string function_name ) {
+  if ( function_name == "new lambda" ) function_name = "lambda" ;
   cout << "ERROR (incorrect number of arguments) : " << function_name << endl ;
   if ( 1 ) throw invalid_argument( "Argument Error" ) ;
 } // ArgumentError()
@@ -264,18 +266,26 @@ bool SearchFromFunction( vector<Function> function_vector, string symbol ) {
 
 Function* GetFromFunction_PTR( string symbol ) {
   // 在vector中查找特定符號
+
   for ( vector<Function>::iterator it = g_predef_function.begin() ; it != g_predef_function.end() ; ++it ) {
     if ( it->m_function_name == symbol ) {
       return new Func( it->m_function_name, it->m_operater, it->m_argument ) ;
     } // if
   } // for
 
+  Func* temp ;
+  bool get_new_lambda = false ;
   for ( vector<Function>::iterator it = g_custom_function.begin() ; it != g_custom_function.end() ; ++it ) {
     if ( it->m_function_name == symbol ) {
-      return new Func( it->m_function_name, it->m_operater, it->m_argument ) ;
+      if ( it->m_function_name == "new lambda" ) {
+        temp = new Func( it->m_function_name, it->m_operater, it->m_argument ) ;
+        get_new_lambda = true ;
+      } // if
+      else return new Func( it->m_function_name, it->m_operater, it->m_argument ) ;
     } // if
   } // for
 
+  if ( get_new_lambda ) return temp ;
   // 沒有找到該符號
   // cout << "ERROR (unbound symbol) : " << symbol << endl ;
   throw invalid_argument( "unbound symbol" ) ;
@@ -291,12 +301,19 @@ int Getm_argument( string symbol ) {
     } // if
   } // for
 
-  for ( vector<Function>::iterator it = g_custom_function.begin() ; 
-        it != g_custom_function.end() ; ++it ) {
+  int temp = 0 ;
+  bool get_new_lambda = false ;
+  for ( vector<Function>::iterator it = g_custom_function.begin() ; it != g_custom_function.end() ; ++it ) {
     if ( it->m_function_name == symbol ) {
-      return it->m_argument ;
+      if ( it->m_function_name == "new lambda" ) {
+        temp = it->m_argument ;
+        get_new_lambda = true ;
+      } // if
+      else return it->m_argument ;
     } // if
   } // for
+
+  if ( get_new_lambda ) return temp ;
 
   // 沒有找到該符號，返回預設值0
   return 0;
@@ -429,9 +446,31 @@ bool IsFunction( string symbol ) {
   return false ;
 } // IsFunction()
 
+stack< vector<Object> > ShallowCopyStack( stack< vector<Object> >& original ) {
+  stack< vector<Object> > copiedStack ;
+    
+  // 先複製原始堆疊的元素到臨時堆疊中
+  stack< vector<Object> > tempStack ;
+  while ( !original.empty() ) {
+    tempStack.push( original.top() ) ;
+    original.pop() ;
+  } // while
+    
+  // 將臨時堆疊的元素複製回新的堆疊中
+  while ( !tempStack.empty() ) {
+    vector<Object> value = tempStack.top() ;
+    copiedStack.push( value ) ;
+    original.push( value ) ;  // 將原始堆疊還原
+    tempStack.pop() ;
+  } // while
+    
+  return copiedStack ;
+
+} // ShallowCopyStack()
+
 Function GetFromFunction( string symbol ) {
   // 在vector中查找特定符號
-  stack< vector<Object> > temp_stack = g_stack_object ;
+  stack< vector<Object> > temp_stack = ShallowCopyStack( g_stack_object ) ;
   if ( temp_stack.empty() == false ) {
     for ( ; ! temp_stack.empty() ; temp_stack.pop() ) {
       for ( vector<Object>::iterator it = temp_stack.top().begin() ; 
@@ -451,11 +490,19 @@ Function GetFromFunction( string symbol ) {
     } // if
   } // for
 
+  Function temp ;
+  bool get_new_lambda = false ;
   for ( vector<Function>::iterator it = g_custom_function.begin() ; it != g_custom_function.end() ; ++it ) {
     if ( it->m_function_name == symbol ) {
-      return *it ;
+      if ( it->m_function_name == "new lambda" ) {
+        temp = *it ;
+        get_new_lambda = true ;
+      } // if
+      else return *it ;
     } // if
   } // for
+
+  if ( get_new_lambda ) return temp ;
 
   for ( vector<Function>::iterator it = g_predef_function.begin() ; it != g_predef_function.end() ; ++it ) {
     if ( it->m_function_name == symbol ) {
@@ -754,7 +801,7 @@ TreeNode* Get_RealObject_Ptr( string object_name ) {
 } // Get_RealObject_Ptr()
 
 Function* Get_DefObject_Function( string object_name ) {
-  stack< vector<Object> > temp_stack = g_stack_object ;
+  stack< vector<Object> > temp_stack = ShallowCopyStack( g_stack_object ) ;
   if ( temp_stack.empty() == false ) {
     for ( ; ! temp_stack.empty() ; temp_stack.pop() ) {
       for ( vector<Object>::iterator it = temp_stack.top().begin() ; 
@@ -777,7 +824,7 @@ Function* Get_DefObject_Function( string object_name ) {
 } // Get_DefObject_Function()
 
 int Get_DefObject_type( string object_name ) {
-  stack< vector<Object> > temp_stack = g_stack_object ;
+  stack< vector<Object> > temp_stack = ShallowCopyStack( g_stack_object ) ;
   if ( temp_stack.empty() == false ) {
     for ( ; ! temp_stack.empty() ; temp_stack.pop() ) {
       for ( vector<Object>::iterator it = temp_stack.top().begin() ; 
@@ -813,7 +860,7 @@ Object GetDefObject( string object_name ) {
 
 Object GetObject( string object_name ) {
 
-  stack< vector<Object> > temp_stack = g_stack_object ;
+  stack< vector<Object> > temp_stack = ShallowCopyStack( g_stack_object ) ;
   if ( temp_stack.empty() == false ) {
     for ( ; ! temp_stack.empty() ; temp_stack.pop() ) {
       for ( vector<Object>::iterator it = temp_stack.top().begin() ; 
@@ -863,7 +910,7 @@ bool IsDefinedOrNot( string object ) {
 
   if ( IsFunction( object ) )
     return true ;
-  stack< vector<Object> > temp_stack = g_stack_object ;
+  stack< vector<Object> > temp_stack = ShallowCopyStack( g_stack_object ) ;
   if ( temp_stack.empty() == false ) {
     for ( ; ! temp_stack.empty() ; temp_stack.pop() ) {
       for ( vector<Object>::iterator it = temp_stack.top().begin() ; 
@@ -888,8 +935,10 @@ bool IsDefinedOrNot( string object ) {
 int GetDefinedType( string object ) {
 
 
-  stack< vector<Object> > temp_stack = g_stack_object ;
+  // cout << "here or not ?" << endl ;
+  stack< vector<Object> > temp_stack = ShallowCopyStack( g_stack_object ) ;
   if ( temp_stack.empty() == false ) {
+    // cout << "here or not 2?" << endl ;
     for ( ; ! temp_stack.empty() ; temp_stack.pop() ) {
       for ( vector<Object>::iterator it = temp_stack.top().begin() ; 
             it != temp_stack.top().end() ; ++it ) {
@@ -952,7 +1001,7 @@ TreeNode* Get_DefObject_Ptr( string object_name ) {
   } // if
 
 
-  stack< vector<Object> > temp_stack = g_stack_object ;
+  stack< vector<Object> > temp_stack = ShallowCopyStack( g_stack_object ) ;
   if ( temp_stack.empty() == false ) {
     for ( ; ! temp_stack.empty() ; temp_stack.pop() ) {
       for ( vector<Object>::iterator it = temp_stack.top().begin() ; 
@@ -4150,32 +4199,49 @@ Object Define_Local_Vairable( TreeNode* inputPtr ) {
 TreeNode* ReadCostumFunction( TreeNode* inputPtr, string function_name ) {
 
   // 把那些東西組裝進來
-  int count = 0 ;
-  vector<Object> tempvector ;
-  tempvector.reserve( 100 ) ;
-  Costum_Function tempFunction ;
-  for ( vector<Costum_Function>::iterator it = g_costum_def_function.begin() ; 
-        it != g_costum_def_function.end() ; ++it ) {
-    if ( it->function_name == function_name ) {
-      tempFunction = *it ;
+  int error_level = g_level ;
+  try {
+    g_cos_function = true ;
+    int count = 0 ;
+    vector<Object> tempvector ;
+    tempvector.reserve( 100 ) ;
+    Costum_Function tempFunction ;
+    for ( vector<Costum_Function>::iterator it = g_costum_def_function.begin() ; 
+          it != g_costum_def_function.end() ; ++it ) {
+      if ( it->function_name == function_name ) {
+        tempFunction = *it ;
+      } // if
+    } // for
+
+    while ( inputPtr ) {
+      TreeNode* tempNode = CopyObject( inputPtr ) ;
+      tempNode->m_right = NULL ;
+      tempFunction.function_argument[count]->m_right = tempNode ;
+      tempvector.push_back( Define_Local_Vairable( tempFunction.function_argument[count] ) ) ;
+      count ++ ;
+      inputPtr = inputPtr->m_right ;
+    } // while 
+
+    g_stack_object.push( tempvector ) ;
+
+    TreeNode* nowPtr = ReadBegin( tempFunction.function_ptr ) ;
+    g_stack_object.pop() ;
+    g_cos_function = false ;
+    return nowPtr ;
+  } // try
+  catch( exception &e ) {
+    if ( strcmp( e.what(), "No Return" ) == 0 ) {
+      g_cos_function = false ;
+      if ( g_stack_object.empty() == false ) g_stack_object.pop() ;
+      if ( error_level == 1 ) throw invalid_argument( "No Return" ) ;
+      else if ( error_level > 1 ) throw invalid_argument( "Parameter" ) ;
     } // if
-  } // for
+    else {
+      if ( 1 ) throw invalid_argument( e.what() ) ;
+    } // else 
+  } // catch
 
-  while ( inputPtr ) {
-    TreeNode* tempNode = CopyObject( inputPtr ) ;
-    tempNode->m_right = NULL ;
-    tempFunction.function_argument[count]->m_right = tempNode ;
-    tempvector.push_back( Define_Local_Vairable( tempFunction.function_argument[count] ) ) ;
-    count ++ ;
-    inputPtr = inputPtr->m_right ;
-  } // while 
-
-  g_stack_object.push( tempvector ) ;
-
-  TreeNode* nowPtr = ReadBegin( tempFunction.function_ptr ) ;
-  g_stack_object.pop() ;
-  return nowPtr ;
-
+  return new TreeNode( NIL ) ;
 } // ReadCostumFunction()
 
 vector<Object> ReadletVairable( TreeNode* inputPtr ) {
@@ -4268,7 +4334,7 @@ TreeNode* ReadNewLambda( TreeNode* inputPtr ) {
   g_stack_object.pop() ;
   g_stack_lambda.pop() ;
   bool ok = false ;
-  for ( int i = 0 ; i < g_custom_function.size() ; i ++ ) {
+  for ( int i = g_custom_function.size()-1 ; i >= 0 ; i -- ) {
     if ( g_custom_function[i].m_function_name == "new lambda" ) {
       g_custom_function.erase( g_custom_function.begin()+i ) ;
     } // if
@@ -4550,6 +4616,15 @@ TreeNode* ReadLeftDefine( TreeNode* inputPtr ) {
       printer.PrintLisp( newPtr, 0, enter ) ;
       DeletePtr( newPtr ) ;
     } // if
+    else if ( strcmp( e.what(), "Parameter" ) == 0 ) {
+      bool enter ;
+      TreeNode* newPtr = new TreeNode( false ) ;
+      newPtr->m_type = LISP ;
+      newPtr->m_left = inputPtr ;
+      cout << "ERROR (unbound parameter) : " ;
+      printer.PrintLisp( newPtr, 0, enter ) ;
+      DeletePtr( newPtr ) ;
+    } // if
     else if ( strcmp( e.what(), "Format Error" ) == 0 ) {
       bool enter ;
       TreeNode* newPtr = new TreeNode( false ) ;
@@ -4596,6 +4671,10 @@ TreeNode* ReadLeft( TreeNode* inputPtr ) {
           ErrorSymBol( inputPtr->m_left_token->m_token_string ) ;
         } // if
         else {
+          // cout << "here will get string" << endl ;
+          // string test = inputPtr->m_left_token->m_token_string ;
+          // cout << test << endl ;
+          // cout << "here will into function" << endl ;
           int token_type = GetDefinedType( inputPtr->m_left_token->m_token_string ) ; 
           if ( token_type == SYMBOL ) {
             Object object = GetDefObject( inputPtr->m_left_token->m_token_string ) ;
@@ -4635,11 +4714,24 @@ TreeNode* ReadLeft( TreeNode* inputPtr ) {
   } // try
   catch( exception &e ) {
     if ( strcmp( e.what(), "No Return" ) == 0 ) {
+      if ( g_cos_function == true ) {
+        throw invalid_argument( e.what() ) ;
+      } // if
+
       bool enter ;
       TreeNode* newPtr = new TreeNode( false ) ;
       newPtr->m_type = LISP ;
       newPtr->m_left = inputPtr ;
       cout << "ERROR (no return value) : " ;
+      printer.PrintLisp( newPtr, 0, enter ) ;
+      DeletePtr( newPtr ) ;
+    } // if
+    else if ( strcmp( e.what(), "Parameter" ) == 0 ) {
+      bool enter ;
+      TreeNode* newPtr = new TreeNode( false ) ;
+      newPtr->m_type = LISP ;
+      newPtr->m_left = inputPtr ;
+      cout << "ERROR (unbound parameter) : " ;
       printer.PrintLisp( newPtr, 0, enter ) ;
       DeletePtr( newPtr ) ;
     } // if
@@ -4655,6 +4747,9 @@ TreeNode* ReadLeft( TreeNode* inputPtr ) {
       printer.ErrorFunction( inputPtr ) ;
     } // if
     else if ( strcmp( e.what(), "Normal Exit" ) == 0 ) {
+      if ( 1 ) throw invalid_argument( e.what() ) ;
+    } // else if
+    else if ( strcmp( e.what(), "Type Error" ) == 0 ) {
       if ( 1 ) throw invalid_argument( e.what() ) ;
     } // else if
 
@@ -4769,6 +4864,25 @@ void DeletePtr( TreeNode* inputPtr ) {
 
 } // DeletePtr()
 
+void DeleteNewLambda() {
+
+  if ( g_custom_function.size() != 0 ) {
+    for ( int i = 0 ; i < g_custom_function.size() ; i ++ ) {
+      if ( g_custom_function[i].m_function_name == "new lambda" ) {
+        g_custom_function.erase( g_custom_function.begin()+i ) ;
+        i -= 1 ;
+      } // if
+    } // for
+  } // if
+
+  for ( ; g_stack_lambda.empty() == false ; g_stack_lambda.pop() ) {
+  } // for
+
+  for ( ; g_stack_object.empty() == false ; g_stack_object.pop() ) {
+  } // for
+
+} // DeleteNewLambda()
+
 void Statement :: PrintStatementResult( vector<Token> &wait_token_vector ) {
 
 
@@ -4848,6 +4962,7 @@ void Statement :: GetStatement() {
   stack<Token> wait_token_stack ;
   vector<Token> wait_token_vector ;
   wait_token_vector.reserve( 100 ) ;
+  DeleteNewLambda() ;
   try {
     cout << "" ;
     cout << endl << "> " ;
