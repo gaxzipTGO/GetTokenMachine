@@ -16,7 +16,7 @@ using namespace std ;
 typedef function<int(char*, char)> GetTokenFunction ;
 
 const int g_keywordSize = 12 ;
-char keyword[] = {'(', ')', '+', '-', '*', ',', '/', EOF, '=', ';', '[', ']'} ;
+char keyword[] = {'(', ')', '+', '-', '*', ',', '/', EOF, '=', ';', '[', ']', ':', '<', '>'} ;
 char nextChar = '\0' ;
 
 void append(char* str, char newChar) {
@@ -80,7 +80,7 @@ bool isComment( char ch ) {
     else return false ;
 }
 
-int divideSign( char *str, char ch ) {
+int getDivideSign( char *str, char ch ) {
     if ( !isComment( ch ) ) {
         append( str, ch ) ;
         return 1 ;
@@ -89,25 +89,74 @@ int divideSign( char *str, char ch ) {
     else return 0 ;
 } // dividesign()
 
-int computeSign( char *str, char ch ) {
+int getComputeSign( char *str, char ch ) {
     /**
      * @param ch ->進來一定會是+ or - 就看後面是甚麼 
+     * @return 得到此token的狀態
     */
     append( str, ch ) ;
     if ( nextChar == ch || nextChar == '=' ) {
         ch = getNextChar() ;
         append( str, ch ) ;
-    }
+    } // if
+
     return 1 ;
 }
+
+int getColonSign( char *str, char ch ) {
+    /**
+     * @param ch ->進來一定是':'
+     * @return 得到此token的狀態
+    */
+    append( str, ch ) ; 
+    if ( nextChar == '=' ) {
+        ch = getNextChar() ;
+        append( str, ch ) ;
+    } // if
+
+    return 1 ;
+
+} // getColonSign()
+
+int getSmallerSign( char *str, char ch ) {
+    /**
+     * @param ch ->進來一定是'<'
+     * @return 得到此token的狀態
+    */
+    append( str, ch ) ;
+    if ( nextChar == '>' || nextChar == '=' ) {
+        ch = getNextChar() ;
+        append( str, ch ) ;
+    } // if
+
+    return 1 ;
+
+} // getSmallerSign()
+
+int getBiggerSign( char *str, char ch ) {
+    /**
+     * @param ch ->進來一定是'>'
+     * @return 得到此token的狀態
+    */
+    append( str, ch ) ;
+    if ( nextChar == '=' ) {
+        ch = getNextChar() ;
+        append( str, ch ) ;
+    } // if
+
+    return 1 ;
+} // getSmallerSign()
 
 typedef map<char, GetTokenFunction> tokenFunction ;
 tokenFunction g_TokenFunctionMap ;
 
 void initialTokenFunctionMap() {
-    g_TokenFunctionMap.emplace( '/', divideSign ) ;
-    g_TokenFunctionMap.emplace( '+', computeSign ) ;
-    g_TokenFunctionMap.emplace( '-', computeSign ) ;
+    g_TokenFunctionMap.emplace( '/', getDivideSign ) ;
+    g_TokenFunctionMap.emplace( '+', getComputeSign ) ;
+    g_TokenFunctionMap.emplace( '-', getComputeSign ) ;
+    g_TokenFunctionMap.emplace( ':', getColonSign ) ;
+    g_TokenFunctionMap.emplace( '<', getSmallerSign ) ;
+    g_TokenFunctionMap.emplace( '>', getBiggerSign ) ;
 }
 
 int keywordAppendChar( char *str, char ch ) {
